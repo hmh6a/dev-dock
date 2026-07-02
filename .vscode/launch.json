@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:dev-dock}/apps/macos",
+            "name": "Debug DevDock (apps/macos)",
+            "target": "DevDock",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug DevDock (apps/macos)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:dev-dock}/apps/macos",
+            "name": "Release DevDock (apps/macos)",
+            "target": "DevDock",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release DevDock (apps/macos)"
+        }
+    ]
+}

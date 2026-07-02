@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(claude -p --input-format stream-json --output-format stream-json --verbose --model haiku --effort low --permission-mode default --max-turns 2)",
+      "Bash(mkdir -p /Users/hmh/Documents/GitHub/dev-dock/agent-runner)",
+      "Bash(npm init *)",
+      "Bash(node -e \"const sdk=require\\('@anthropic-ai/claude-agent-sdk'\\); console.log\\('SDK exports:', Object.keys\\(sdk\\).slice\\(0,20\\).join\\(', '\\)\\)\")"
+    ]
+  }
+}

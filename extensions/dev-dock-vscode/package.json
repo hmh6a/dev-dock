@@ -1,0 +1,85 @@
+{
+  "name": "dev-dock-vscode",
+  "displayName": "dev-dock",
+  "description": "Bridge between VS Code and the dev-dock menu bar cockpit.",
+  "version": "0.1.0",
+  "publisher": "dev-dock",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dev-dock/dev-dock"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devDock",
+          "title": "dev-dock",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "devDock": [
+        {
+          "type": "webview",
+          "id": "devDock.chat",
+          "name": "AI Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "devDock.connect",
+        "title": "dev-dock: Connect to cockpit"
+      },
+      {
+        "command": "devDock.disconnect",
+        "title": "dev-dock: Disconnect"
+      },
+      {
+        "command": "devDock.sendContext",
+        "title": "dev-dock: Send current context"
+      }
+    ],
+    "configuration": {
+      "title": "dev-dock",
+      "properties": {
+        "devDock.bridgePort": {
+          "type": "number",
+          "default": 51888,
+          "description": "Localhost WebSocket port the dev-dock app listens on."
+        },
+        "devDock.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Connect to the dev-dock cockpit automatically on startup."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3"
+  }
+}

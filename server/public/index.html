@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e13" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="dev-dock" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <title>dev-dock</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; }
+    /* Pinned to the top of the layout viewport; JS sets the height to the
+       VISUAL viewport (and translates by its offset) so the composer rides
+       just above the on-screen keyboard instead of being covered by it.
+       Note: no `bottom`/`inset` — with top+bottom both set, an explicit
+       height is ignored, which is exactly what broke the keyboard layout. */
+    body {
+      position: fixed; top: 0; left: 0; right: 0; height: 100dvh;
+      font-family: -apple-system, system-ui, sans-serif; background: #0b0e13; color: #e6e8ec;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; flex: none; border-bottom: 1px solid #1c212b;
+      padding-top: calc(12px + env(safe-area-inset-top)); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #6b7280; flex: none; }
+    .dot.on { background: #3fb950; }
+    .htitle { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .htitle .title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .htitle .status { color: #8b93a1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hbtn { background: #1c212b; color: #c7ccd6; border: none; border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1; flex: none; }
+    .hbtn.on { background: rgba(63,185,80,0.18); color: #3fb950; }
+    #log { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+    .msg { max-width: 86%; padding: 9px 12px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.45; font-size: 15px; }
+    .user { align-self: flex-end; background: #2f6fed; color: #fff; border-bottom-right-radius: 4px; }
+    .assistant { align-self: flex-start; background: #171b23; border-bottom-left-radius: 4px; }
+    .assistant.error { background: rgba(248,81,73,0.16); }
+    .msg.working { display: flex; align-items: center; gap: 9px; color: #9aa3b2; }
+    .msg.working .wdot { width: 8px; height: 8px; border-radius: 50%; background: #6ea8ff; flex: none; animation: wpulse 1.1s ease-in-out infinite; }
+    .msg.working .wtext { font-size: 14px; }
+    @keyframes wpulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+    .msg img.attach { max-width: min(220px, 70vw); max-height: 240px; border-radius: 10px; display: block; }
+    .msg img.attach + img.attach { margin-top: 6px; }
+    .msg .cap { margin-top: 6px; }
+    .tool { align-self: flex-start; font-size: 12px; color: #8b93a1; display: flex; gap: 6px; align-items: center; }
+    .tool .tdot { width: 6px; height: 6px; border-radius: 50%; background: #3fb950; }
+    .empty { color: #8b93a1; font-size: 14px; padding: 16px; text-align: center; margin: auto; }
+    #perm { margin: 10px 12px; padding: 12px; border-radius: 12px; background: #171b23; border: 1px solid #2f6fed; display: none; }
+    #perm.show { display: block; }
+    #perm .pt { font-weight: 600; margin-bottom: 6px; }
+    #perm pre { margin: 0 0 10px; padding: 9px; border-radius: 8px; background: #0b0e13; overflow: auto; max-height: 160px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    #perm .prow { display: flex; gap: 8px; }
+    #perm button { flex: 1; border: none; border-radius: 9px; padding: 11px; font-size: 15px; font-weight: 600; }
+    #perm .yes { background: #2ea043; color: #fff; }
+    #perm .always { background: #194b31; color: #cde6d6; }
+    #perm .no { background: #262c38; color: #e6e8ec; }
+    #thumbs { display: flex; gap: 6px; padding: 8px 12px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: none; }
+    #thumbs:empty { display: none; }
+    .thumb { position: relative; flex: none; }
+    .thumb img { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; display: block; }
+    .thumb .rm { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: none; background: #000; color: #fff; font-size: 13px; line-height: 1; padding: 0; display: grid; place-items: center; }
+    footer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #1c212b; align-items: flex-end; flex: none;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    #input { flex: 1; resize: none; max-height: 140px; min-height: 44px; padding: 11px 12px; border-radius: 12px; background: #171b23; color: #e6e8ec; border: 1px solid #262c38; font: inherit; font-size: 16px; }
+    .iconbtn { flex: none; width: 44px; height: 44px; border: none; border-radius: 50%; padding: 0; display: grid; place-items: center; }
+    #attach { background: #1c212b; color: #c7ccd6; font-size: 24px; line-height: 0; }
+    #send { background: #2f6fed; color: #fff; }
+    #send svg { width: 21px; height: 21px; display: block; }
+    #send.stop { background: #e5484d; }
+    #send:disabled { opacity: .4; }
+    /* In-app toast (works even in a Safari tab where OS notifications don't) */
+    #toast { position: absolute; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-8px);
+      z-index: 40; background: #171b23; border: 1px solid #2f6fed; color: #e6e8ec; padding: 10px 14px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.45); max-width: 82%; text-align: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* Screens: exactly one is shown between the header and the bottom nav. */
+    .view { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; }
+    .view.show { display: flex; }
+    /* Bottom navigation (labeled, replaces the cryptic header glyphs) */
+    #tabbar { display: flex; flex: none; border-top: 1px solid #1c212b; background: #0b0e13; padding-bottom: env(safe-area-inset-bottom); }
+    #tabbar button { flex: 1; background: none; border: none; color: #8b93a1; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; }
+    #tabbar button .ni { font-size: 20px; line-height: 1; }
+    #tabbar button.on { color: #4a8cff; }
+    /* ⋯ menu (bottom sheet with labeled actions) */
+    #menuScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.45); display: none; }
+    #menuScrim.show { display: block; }
+    #menu { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: #12161f; border-top: 1px solid #262c38;
+      border-radius: 16px 16px 0 0; padding: 10px 10px calc(12px + env(safe-area-inset-bottom)); transform: translateY(110%); transition: transform .22s ease; }
+    #menu.show { transform: translateY(0); }
+    .mitem { display: flex; align-items: center; gap: 13px; width: 100%; background: none; border: none; color: #e6e8ec; font-size: 16px; padding: 13px 10px; border-radius: 10px; text-align: left; }
+    .mitem:active { background: #1c212b; }
+    .mitem .mi { font-size: 18px; width: 22px; text-align: center; flex: none; }
+    .mitem .ml { flex: 1; }
+    .mitem .mstate { color: #8b93a1; font-size: 13px; font-weight: 600; }
+    .mitem.on .mstate { color: #3fb950; }
+    .mitem.danger { color: #f0776c; }
+    /* Terminal live-input hint */
+    #termHint { flex: none; text-align: center; color: #6b7280; font-size: 11px; padding: 5px 8px 0; }
+    /* Projects dashboard banner */
+    #dash { flex: none; }
+    #dash:empty { display: none; }
+    .dashcard { margin: 10px 12px 2px; padding: 12px 14px; border-radius: 12px; background: #12161f; border: 1px solid #23324d; }
+    .dashcard .dl { display: flex; align-items: center; gap: 8px; }
+    .dashcard .dname { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dashcard .dpill { flex: none; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+    .dashcard .dpill.run { background: rgba(63,185,80,0.18); color: #3fb950; }
+    .dashcard .dpill.idle { background: #1c212b; color: #8b93a1; }
+    .dashcard .dsub { color: #8b93a1; font-size: 12px; margin-top: 5px; }
+    /* Files browser + code viewer */
+    #viewFiles #fbrowse, #viewFiles #fviewer { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    #viewFiles.file #fbrowse { display: none; }
+    #viewFiles:not(.file) #fviewer { display: none; }
+    #fcrumb { flex: none; display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #1c212b; font-size: 12px; color: #8b93a1; }
+    #fcrumb .seg { color: #6ea8ff; }
+    #fcrumb .sep { color: #3a4150; }
+    #flist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; }
+    .frow { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; background: #12151c; }
+    .frow .fi { flex: none; font-size: 16px; }
+    .frow .fn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .frow .fsz { flex: none; color: #6b7280; font-size: 11px; }
+    #fvbody { flex: 1; min-height: 0; margin: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px; background: #0b0e13; }
+    #fvbody code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre; line-height: 1.5; }
+    #fvbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #1c212b; }
+    #fvtitle { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #fvuse { background: #2f6fed; color: #fff; }
+    /* Project / conversation browser (now an in-flow screen) */
+    #browsePanel { background: #0b0e13; }
+    .bhead { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #1c212b; }
+    .btitle { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #blist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .brow { background: #171b23; border: 1px solid #212733; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 11px; }
+    .brow .ic { font-size: 17px; flex: none; }
+    .brow .bbody { flex: 1; min-width: 0; }
+    .brow .rt { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brow .rs { color: #8b93a1; font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brow .chev { color: #5b6472; flex: none; font-size: 16px; }
+    .brow.newchat { border-style: dashed; color: #8bc0ff; justify-content: center; font-weight: 600; }
+    .bempty { color: #8b93a1; text-align: center; padding: 26px 16px; font-size: 14px; }
+    /* Filter + grouped project list */
+    #bsearch { flex: none; margin: 8px 12px 2px; padding: 9px 12px; border-radius: 10px; background: #171b23; color: #e6e8ec; border: 1px solid #262c38; font: inherit; font-size: 16px; }
+    .bgroup { display: flex; align-items: baseline; gap: 8px; padding: 14px 6px 4px; color: #8b93a1; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .bgroup .gc { color: #5b6472; font-weight: 600; }
+    .brow .st { width: 9px; height: 9px; border-radius: 50%; background: #3a4150; flex: none; }
+    .brow .st.on { background: #3fb950; }
+    .brow .cnt { color: #8b93a1; font-size: 13px; font-weight: 600; flex: none; margin-left: 4px; }
+    /* Terminal screen */
+    #termPanel { background: #0b0e13; }
+    #termTabs { display: flex; gap: 5px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 7px 8px; border-bottom: 1px solid #1c212b; flex: none; }
+    .ttab { flex: none; display: flex; align-items: center; gap: 7px; max-width: 150px; padding: 6px 11px; border-radius: 8px; background: #171b23; color: #9aa3b2; font-size: 12px; white-space: nowrap; }
+    .ttab span:first-child { overflow: hidden; text-overflow: ellipsis; }
+    .ttab.active { background: #22304a; color: #fff; }
+    .ttab .x { opacity: .6; font-size: 14px; }
+    .ttab.add { color: #8bc0ff; font-weight: 700; padding: 6px 12px; }
+    #termBox { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+    .termpane { position: absolute; inset: 0; padding: 6px 8px; display: none; }
+    .termpane.active { display: block; }
+    .termpane .xterm { height: 100%; }
+    #termKeys { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px; border-top: 1px solid #1c212b; flex: none; }
+    .tkey { flex: none; min-width: 46px; height: 40px; padding: 0 13px; border: none; border-radius: 9px; background: #1c212b; color: #e6e8ec; font-size: 15px; display: grid; place-items: center; }
+    .tkey.on { background: rgba(63,185,80,0.22); color: #3fb950; }
+    .ttab .x { margin-left: 2px; }
+    /* Rename/colour tab sheet */
+    #termEditScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.45); display: none; }
+    #termEditScrim.show { display: block; }
+    #termEdit { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: #12161f; border-top: 1px solid #262c38;
+      border-radius: 16px 16px 0 0; padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); transform: translateY(115%); transition: transform .22s ease; }
+    #termEdit.show { transform: translateY(0); }
+    #termEdit .tehead { font-weight: 700; margin-bottom: 10px; }
+    #teName { width: 100%; padding: 11px 12px; border-radius: 10px; background: #171b23; color: #e6e8ec; border: 1px solid #262c38; font: inherit; font-size: 16px; }
+    #teSwatches { display: flex; gap: 12px; margin: 14px 2px; }
+    .sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; }
+    .sw.sel { border-color: #fff; }
+    .sw.none { background: #2a303c; position: relative; }
+    .sw.none::after { content: '∅'; color: #8b93a1; position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; }
+    #teSave { width: 100%; border: none; border-radius: 10px; padding: 13px; background: #2f6fed; color: #fff; font-size: 16px; font-weight: 700; }
+    /* Install helper sheet */
+    #installScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.45); display: none; }
+    #installScrim.show { display: block; }
+    #installSheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: #12161f; border-top: 1px solid #262c38;
+      border-radius: 16px 16px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(115%); transition: transform .22s ease; }
+    #installSheet.show { transform: translateY(0); }
+    #installSheet .tehead { font-weight: 700; font-size: 16px; margin-bottom: 12px; }
+    #installSteps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    #installSteps .istep { display: flex; gap: 11px; align-items: flex-start; font-size: 15px; line-height: 1.4; }
+    #installSteps .in { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(47,111,237,0.2); color: #6ea8ff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+    #installClose { width: 100%; border: none; border-radius: 10px; padding: 13px; background: #2f6fed; color: #fff; font-size: 16px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="dot" id="dot"></span>
+    <button class="hbtn" id="hback" style="display:none">‹</button>
+    <div class="htitle">
+      <span class="title" id="title">Projects</span>
+      <span class="status" id="status">Connecting…</span>
+    </div>
+    <button class="hbtn" id="menuBtn" title="Menu">⋯</button>
+  </header>
+
+  <div id="viewChat" class="view">
+    <div id="log"><div class="empty">Connecting to dev-dock…</div></div>
+    <div id="perm">
+      <div class="pt" id="pt"></div>
+      <pre id="pb"></pre>
+      <div class="prow"><button class="no" id="pno">Deny</button><button class="always" id="palways" style="display:none">Always</button><button class="yes" id="pyes">Allow</button></div>
+    </div>
+    <div id="thumbs"></div>
+    <footer>
+      <button class="iconbtn" id="attach" title="Add image" aria-label="Add image">+</button>
+      <textarea id="input" rows="1" placeholder="Message Claude Code…"></textarea>
+      <button class="iconbtn" id="send" aria-label="Send"></button>
+      <input type="file" id="file" accept="image/*" multiple hidden />
+    </footer>
+  </div>
+
+  <div id="browsePanel" class="view show">
+    <div id="dash"></div>
+    <input id="bsearch" placeholder="Filter projects…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <div id="blist"></div>
+  </div>
+
+  <div id="termPanel" class="view">
+    <div id="termTabs"></div>
+    <div id="termBox"></div>
+    <div id="termHint">Live input · your keyboard types straight into the terminal</div>
+    <div id="termKeys"></div>
+  </div>
+
+  <div id="viewFiles" class="view">
+    <div id="fbrowse">
+      <div id="fcrumb"></div>
+      <div id="flist"></div>
+    </div>
+    <div id="fviewer">
+      <pre id="fvbody"><code id="fvcode"></code></pre>
+      <div id="fvbar">
+        <button class="hbtn" id="fvback">‹ Files</button>
+        <span id="fvtitle"></span>
+        <button class="hbtn" id="fvuse">Use in chat</button>
+      </div>
+    </div>
+  </div>
+
+  <nav id="tabbar">
+    <button data-view="projects" id="navProjects"><span class="ni">📁</span><span>Projects</span></button>
+    <button data-view="chat" id="navChat"><span class="ni">💬</span><span>Chat</span></button>
+    <button data-view="terminal" id="navTerminal"><span class="ni">⌨</span><span>Terminal</span></button>
+    <button data-view="files" id="navFiles"><span class="ni">📄</span><span>Files</span></button>
+  </nav>
+
+  <div id="menuScrim"></div>
+  <div id="menu">
+    <button class="mitem" id="miHistory"><span class="mi">🕘</span><span class="ml">Conversation history</span></button>
+    <button class="mitem" id="new"><span class="mi">✍️</span><span class="ml">New chat</span></button>
+    <button class="mitem" id="auto"><span class="mi">⚡</span><span class="ml">Auto-approve tools</span><span class="mstate" id="autoState">Off</span></button>
+    <button class="mitem" id="miNotify"><span class="mi">🔔</span><span class="ml">Notifications</span><span class="mstate" id="notifyState">Off</span></button>
+    <button class="mitem" id="miTest"><span class="mi">🧪</span><span class="ml">Test notification</span></button>
+    <button class="mitem" id="miInstall"><span class="mi">⬇️</span><span class="ml">Install app</span></button>
+    <button class="mitem danger" id="restart"><span class="mi">↻</span><span class="ml">Restart project</span></button>
+  </div>
+
+  <div id="installScrim"></div>
+  <div id="installSheet">
+    <div class="tehead">Install dev-dock</div>
+    <div id="installSteps"></div>
+    <button id="installClose">Got it</button>
+  </div>
+
+  <div id="termEditScrim"></div>
+  <div id="termEdit">
+    <div class="tehead">Rename terminal tab</div>
+    <input id="teName" placeholder="Tab name" maxlength="24" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <div id="teSwatches"></div>
+    <button id="teSave">Save</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const WS_PORT = 51888;
+    const $ = (id) => document.getElementById(id);
+    const log = $('log'), input = $('input'), sendBtn = $('send'), dot = $('dot');
+    const titleEl = $('title'), statusEl = $('status');
+    const permEl = $('perm'), ptEl = $('pt'), pbEl = $('pb');
+    const panel = $('browsePanel'), blist = $('blist');
+    const attachBtn = $('attach'), fileInput = $('file'), thumbs = $('thumbs');
+    const termPanel = $('termPanel'), termBox = $('termBox');
+    const viewChat = $('viewChat'), menuEl = $('menu'), menuScrim = $('menuScrim'), hback = $('hback'), autoState = $('autoState');
+    let view = 'projects'; // 'projects' | 'chat' | 'terminal'
+    function setTitle(t) { titleEl.textContent = t; }
+    function setView(v) {
+      view = v;
+      viewChat.classList.toggle('show', v === 'chat');
+      panel.classList.toggle('show', v === 'projects');
+      termPanel.classList.toggle('show', v === 'terminal');
+      viewFiles.classList.toggle('show', v === 'files');
+      $('navProjects').classList.toggle('on', v === 'projects');
+      $('navChat').classList.toggle('on', v === 'chat');
+      $('navTerminal').classList.toggle('on', v === 'terminal');
+      $('navFiles').classList.toggle('on', v === 'files');
+      if (v === 'chat') { setTitle(activeProject || 'dev-dock'); hback.style.display = 'none'; setTimeout(() => { log.scrollTop = log.scrollHeight; }, 30); }
+      else if (v === 'terminal') { setTitle((activeProject ? activeProject + ' — ' : '') + 'Terminal'); hback.style.display = 'none'; setTimeout(fitTerminal, 60); }
+      else if (v === 'files') { setTitle((activeProject ? activeProject + ' — ' : '') + 'Files'); hback.style.display = 'none'; }
+      else { setTitle(browseView === 'sessions' ? (activeProject || 'History') : 'Projects'); hback.style.display = browseView === 'sessions' ? '' : 'none'; }
+    }
+    function openMenu() { refreshAuto(); refreshNotify(); refreshInstall(); menuScrim.classList.add('show'); menuEl.classList.add('show'); }
+    function closeMenu() { menuScrim.classList.remove('show'); menuEl.classList.remove('show'); }
+    function refreshAuto() { autoState.textContent = autoApprove ? 'On' : 'Off'; $('auto').classList.toggle('on', autoApprove); }
+
+    // --- Enable notifications + install, from inside the PWA ---
+    let deferredInstall = null;
+    function isStandalone() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+    function isiOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+    function refreshNotify() {
+      const el = $('notifyState');
+      if (!('Notification' in window)) { el.textContent = (isiOS() && !isStandalone()) ? 'Install first' : 'N/A'; $('miNotify').classList.remove('on'); return; }
+      const p = Notification.permission;
+      el.textContent = p === 'granted' ? 'On' : (p === 'denied' ? 'Blocked' : 'Off');
+      $('miNotify').classList.toggle('on', p === 'granted');
+    }
+    function enableNotify() {
+      if (!('Notification' in window)) {
+        toast((isiOS() && !isStandalone()) ? 'On iPhone: install to the Home Screen first, then enable notifications.' : 'This browser has no notifications.');
+        return;
+      }
+      if (Notification.permission === 'granted') { toast('Notifications are on ✓'); refreshNotify(); return; }
+      if (Notification.permission === 'denied') { toast('Blocked — enable dev-dock in iPhone Settings ▸ Notifications.'); return; }
+      Notification.requestPermission().then((p) => { refreshNotify(); toast(p === 'granted' ? 'Notifications enabled ✓' : 'Not enabled.'); });
+    }
+    function refreshInstall() { $('miInstall').style.display = isStandalone() ? 'none' : ''; }
+    function doInstall() {
+      closeMenu();
+      if (isStandalone()) { toast('Already installed ✓'); return; }
+      if (deferredInstall) { deferredInstall.prompt(); deferredInstall.userChoice.finally(() => { deferredInstall = null; refreshInstall(); }); return; }
+      openInstallHelp();   // iOS / not-yet-installable: show the steps
+    }
+    function openInstallHelp() {
+      const steps = isiOS()
+        ? [['1', 'Open this page in <b>Safari</b> (not an in-app browser).'], ['2', 'Tap the <b>Share</b> button at the bottom.'], ['3', 'Choose <b>Add to Home Screen</b>, then tap <b>Add</b>.'], ['4', 'Open dev-dock from its Home Screen icon.']]
+        : [['1', 'Open your browser menu (⋮).'], ['2', 'Tap <b>Install app</b> / <b>Add to Home screen</b>.'], ['3', 'Confirm, then open it from your apps.']];
+      const box = $('installSteps'); box.innerHTML = '';
+      for (const s of steps) { const row = document.createElement('div'); row.className = 'istep'; row.innerHTML = '<span class="in">' + s[0] + '</span><span>' + s[1] + '</span>'; box.appendChild(row); }
+      $('installScrim').classList.add('show'); $('installSheet').classList.add('show');
+    }
+    function closeInstallHelp() { $('installScrim').classList.remove('show'); $('installSheet').classList.remove('show'); }
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; refreshInstall(); });
+    window.addEventListener('appinstalled', () => { deferredInstall = null; toast('Installed ✓'); refreshInstall(); });
+
+    const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="5"/><polyline points="5 11 12 4 19 11"/></svg>';
+    const STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+    let ws = null, connected = false, streaming = false, permission = null;
+    let lastChat = [], lastStatus = '', activeProject = '';
+    let projects = [], sessions = [], browseView = 'projects', sessionsLoading = false; // 'projects' | 'sessions'
+    let attachments = []; // { id, url, blob }
+    let autoApprove = false, lastPermId = null, wasStreaming = false;
+    let activeProjectId = null, terminalEnabled = false, browseQuery = '';
+    let xtermLoading = null, terms = [], activeTermId = null, ctrlArmed = false; // terms: {id, term, fitAddon, pane, title}
+    let filesPath = '', fileEntries = [], fileRoot = '', pendingRoot = false, curFile = '', hljsLoading = null, sessionCost = 0;
+    let serverTerms = [], editTermId = null, editColor = ''; // shared terminal list from the app
+    const TCOLORS = ['', '#3fb950', '#2f6fed', '#e5484d', '#e2a53b', '#a371f7', '#f778ba'];
+    const dash = $('dash'), fcrumb = $('fcrumb'), flist = $('flist'), viewFiles = $('viewFiles'), fvcode = $('fvcode'), fvtitle = $('fvtitle'), fvbody = $('fvbody');
+
+    // Pull image file paths out of a message so we can show the picture and
+    // hide the "Attached image(s) — view them…" boilerplate + raw path.
+    function splitImages(text) {
+      const lines = (text || '').split('\n');
+      const imgs = [], kept = [];
+      const lead = /(attached image|view the attached image|view them with the read tool|view the attached image\(s\))/i;
+      const isImg = /^\/.*\.(jpe?g|png|gif|webp|heic)$/i;
+      for (const ln of lines) {
+        const t = ln.trim();
+        if (isImg.test(t)) imgs.push(t);
+        else if (lead.test(t)) { /* drop boilerplate */ }
+        else kept.push(ln);
+      }
+      return { text: kept.join('\n').trim(), imgs };
+    }
+
+    // --- Alerts (approval needed / turn finished) ---
+    // On iOS the OS Notification API only exists in an installed (Home-Screen)
+    // PWA, so we ALSO ring a sound + show an in-page toast, which work in a
+    // plain Safari tab whether or not you're looking at the page.
+    let audioCtx = null;
+    function unlockAudio() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+      } catch (e) {}
+    }
+    function beep() {
+      try {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        [880, 1320].forEach((freq, i) => {
+          const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+          o.type = 'sine'; o.frequency.value = freq;
+          o.connect(g); g.connect(audioCtx.destination);
+          const s = t + i * 0.14;
+          g.gain.setValueAtTime(0.0001, s);
+          g.gain.exponentialRampToValueAtTime(0.22, s + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, s + 0.13);
+          o.start(s); o.stop(s + 0.14);
+        });
+      } catch (e) {}
+    }
+    let toastTimer = null;
+    function toast(msg) {
+      const el = $('toast'); el.textContent = msg; el.classList.add('show');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+    }
+    function ensureNotify() {
+      try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
+    }
+    // A button to confirm notifications reach you while you're OUT of the app:
+    // asks permission, counts down, then fires a real notification so you can
+    // switch away and check it lands.
+    let testTimer = null;
+    function testNotify() {
+      closeMenu();
+      if (!('Notification' in window)) { toast('No notifications here. On iPhone: Share → Add to Home Screen, then open from there.'); return; }
+      const schedule = () => {
+        let n = 5;
+        toast('Switch away from dev-dock now — test in ' + n + 's');
+        clearInterval(testTimer);
+        testTimer = setInterval(() => {
+          n--;
+          if (n > 0) { toast('Test notification in ' + n + 's… leave the app'); return; }
+          clearInterval(testTimer);
+          try {
+            new Notification('dev-dock', {
+              body: document.visibilityState === 'visible'
+                ? "You're still in the app — real alerts show when you're away."
+                : 'Notifications work ✓ — you\'ll get these when a task needs you.',
+              icon: '/icon-192.png', tag: 'dd-test', renotify: true,
+            });
+            if (document.visibilityState === 'visible') toast('Sent. It appears when you leave the app.');
+          } catch (e) { toast('Could not show it: ' + (e && e.message || e)); }
+        }, 1000);
+      };
+      if (Notification.permission === 'granted') schedule();
+      else if (Notification.permission === 'denied') toast('Notifications are blocked — enable dev-dock in iPhone Settings ▸ Notifications.');
+      else Notification.requestPermission().then((p) => { p === 'granted' ? schedule() : toast('Allow notifications to test them.'); });
+    }
+    function notify(title, body) {
+      try {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (document.visibilityState === 'visible') return; // OS banner only when away
+        new Notification(title, { body, icon: '/icon-192.png', tag: 'dev-dock', renotify: true });
+      } catch (e) {}
+    }
+    function alertUser(title, body) { beep(); toast(title); notify(title, body); }
+    function handleNotifications(chat, perm) {
+      const streamingNow = chat.some((x) => x.streaming);
+      const permId = perm ? perm.id : null;
+      if (permId && permId !== lastPermId) alertUser('Approval needed', perm.title || 'Claude wants to run a tool');
+      lastPermId = permId;
+      if (wasStreaming && !streamingNow && !perm) alertUser('✓ Claude finished', 'Your task is done.');
+      wasStreaming = streamingNow;
+    }
+
+    function connect() {
+      // Over HTTPS (e.g. `tailscale serve`) the socket must be same-origin wss
+      // at /ws (mixed content blocks ws:// from https://); over plain HTTP use
+      // the direct bridge port as before.
+      const wsUrl = location.protocol === 'https:'
+        ? ('wss://' + location.host + '/ws')
+        : ('ws://' + location.hostname + ':' + WS_PORT);
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => { connected = true; send({ type: 'listProjects' }); paint(); };
+      ws.onclose = () => { connected = false; paint(); setTimeout(connect, 2000); };
+      ws.onerror = () => { try { ws.close(); } catch (e) {} };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.type === 'chatSnapshot') {
+          if (m.projectName) activeProject = m.projectName;
+          if (typeof m.autoApprove === 'boolean') { autoApprove = m.autoApprove; refreshAuto(); }
+          if (typeof m.terminalEnabled === 'boolean') { terminalEnabled = m.terminalEnabled; $('navTerminal').style.opacity = terminalEnabled ? '' : '0.45'; }
+          if (typeof m.costUSD === 'number') sessionCost = m.costUSD;
+          handleNotifications(m.chat || [], m.permission || null);
+          render(m.chat || [], m.status || '', m.permission || null);
+          renderDash();
+        } else if (m.type === 'dirList') {
+          filesPath = m.file || '';
+          fileEntries = m.entries || [];
+          if (pendingRoot) { fileRoot = filesPath; pendingRoot = false; }
+          renderFiles();
+        } else if (m.type === 'fileContent') {
+          showFile(m.file || '', m.content || '', m.truncated);
+        } else if (m.type === 'projectList') {
+          projects = m.projects || [];
+          if (browseView === 'projects') renderBrowse();
+        } else if (m.type === 'sessionList') {
+          sessions = m.sessions || [];
+          sessionsLoading = false;
+          if (m.projectName) activeProject = m.projectName;
+          if (browseView === 'sessions') renderBrowse();
+        } else if (m.type === 'termData') {
+          const t = terms.find((x) => x.id === m.termId);
+          if (t && typeof m.data === 'string') {
+            if (m.reset) { try { t.term.reset(); } catch (e) {} }
+            if (m.data) t.term.write(Uint8Array.from(atob(m.data), (c) => c.charCodeAt(0)));
+          }
+        } else if (m.type === 'termExit') {
+          const t = terms.find((x) => x.id === m.termId);
+          if (t) t.term.write('\r\n\x1b[90m[process ended]\x1b[0m\r\n');
+        } else if (m.type === 'termList') {
+          serverTerms = m.terminals || [];
+          if (view === 'terminal') reconcileTerms();
+        }
+      };
+    }
+    function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+    function render(chat, status, perm) {
+      lastChat = chat; lastStatus = status;
+      streaming = chat.some((x) => x.streaming);
+      if (view === 'chat') titleEl.textContent = activeProject || 'dev-dock';
+      // The working status ("Pondering… · N tokens") shows inside the chat,
+      // not here — the header only reflects the connection.
+      statusEl.textContent = connected ? 'Connected' : 'dev-dock offline';
+      dot.className = 'dot' + (connected ? ' on' : '');
+      updateSend();
+
+      permission = perm;
+      if (perm) {
+        ptEl.textContent = perm.title || ('Allow ' + (perm.tool || 'tool') + '?');
+        pbEl.textContent = perm.body || '';
+        $('palways').style.display = perm.canRemember ? '' : 'none';
+        permEl.classList.add('show');
+      } else { permEl.classList.remove('show'); }
+
+      if (!chat.length) {
+        log.innerHTML = '<div class="empty">' + (connected ? 'Start chatting — synced with your Mac.' : 'Open the dev-dock app on your Mac.') + '</div>';
+        return;
+      }
+      log.innerHTML = '';
+      for (const msg of chat) {
+        const el = document.createElement('div');
+        el.className = 'msg ' + msg.role + (msg.isError ? ' error' : '');
+        const parsed = splitImages(msg.text);
+        for (const p of parsed.imgs) {
+          const im = document.createElement('img');
+          im.className = 'attach';
+          im.src = '/media?p=' + encodeURIComponent(p);
+          el.appendChild(im);
+        }
+        if (parsed.text) {
+          const cap = document.createElement('div');
+          if (parsed.imgs.length) cap.className = 'cap';
+          cap.textContent = parsed.text;
+          el.appendChild(cap);
+        } else if (!parsed.imgs.length) {
+          if (msg.streaming) {
+            // In-chat working indicator: a pulsing dot + the live status verb/tokens.
+            el.classList.add('working');
+            el.innerHTML = '<span class="wdot"></span><span class="wtext"></span>';
+            el.querySelector('.wtext').textContent = status || 'Working…';
+          } else { el.textContent = ''; }
+        }
+        log.appendChild(el);
+        for (const t of (msg.tools || [])) {
+          const te = document.createElement('div');
+          te.className = 'tool';
+          te.innerHTML = '<span class="tdot"></span>';
+          te.appendChild(document.createTextNode(t));
+          log.appendChild(te);
+        }
+      }
+      log.scrollTop = log.scrollHeight;
+    }
+    function paint() { render(lastChat, lastStatus, permission); }
+
+    // --- Project / conversation browser ---
+    function relTime(sec) {
+      if (!sec) return '';
+      const d = Date.now() / 1000 - sec;
+      if (d < 60) return 'just now';
+      if (d < 3600) return Math.floor(d / 60) + 'm ago';
+      if (d < 86400) return Math.floor(d / 3600) + 'h ago';
+      if (d < 604800) return Math.floor(d / 86400) + 'd ago';
+      return Math.floor(d / 604800) + 'w ago';
+    }
+    function showProjects() { browseView = 'projects'; browseQuery = ''; $('bsearch').value = ''; send({ type: 'listProjects' }); renderBrowse(); setView('projects'); }
+    function showHistory() { closeMenu(); if (!activeProjectId) { showProjects(); return; } browseView = 'sessions'; sessionsLoading = true; send({ type: 'listSessions', projectId: activeProjectId }); renderBrowse(); setView('projects'); }
+    function goBack() { if (view === 'projects' && browseView === 'sessions') { browseView = 'projects'; renderBrowse(); setView('projects'); } else setView('chat'); }
+    // Tap a project → show its past conversations (resume one) instead of
+    // jumping straight into a blank chat. openProject makes the Mac load them.
+    function pickProject(p) {
+      activeProject = p.name; activeProjectId = p.id; sessions = []; browseView = 'sessions'; sessionsLoading = true;
+      send({ type: 'openProject', projectId: p.id });
+      renderBrowse(); setView('projects');
+    }
+    function resume(s) { send({ type: 'resumeSession', sessionRef: s.id }); setView('chat'); }
+    function newChat() { send({ type: 'chatNew' }); closeMenu(); setView('chat'); }
+    function toggleAuto() { ensureNotify(); unlockAudio(); autoApprove = !autoApprove; refreshAuto(); send({ type: 'setAutoApprove', autoApprove }); }
+    function doRestart() { closeMenu(); if (confirm('Restart the project? This stops the current turn and starts a fresh chat.')) send({ type: 'restartProject' }); }
+
+    function row(icon, title, subtitle, chev, onClick) {
+      const el = document.createElement('div');
+      el.className = 'brow';
+      el.innerHTML = '<span class="ic"></span><div class="bbody"><div class="rt"></div><div class="rs"></div></div><span class="chev"></span>';
+      el.querySelector('.ic').textContent = icon;
+      el.querySelector('.rt').textContent = title;
+      el.querySelector('.rs').textContent = subtitle;
+      el.querySelector('.chev').textContent = chev;
+      el.addEventListener('click', onClick);
+      return el;
+    }
+    // Group projects Orca-style by their parent folder (…/<group>/<project>).
+    function groupName(p) {
+      const parts = (p.path || '').split('/').filter(Boolean);
+      return parts.length >= 2 ? parts[parts.length - 2] : 'Projects';
+    }
+    function projectRow(p) {
+      const el = document.createElement('div');
+      el.className = 'brow';
+      el.innerHTML = '<span class="st"></span><span class="ic">📁</span><div class="bbody"><div class="rt"></div><div class="rs"></div></div><span class="cnt"></span>';
+      if (p.id === activeProjectId) el.querySelector('.st').classList.add('on');
+      el.querySelector('.rt').textContent = p.name || p.path;
+      el.querySelector('.rs').textContent = [p.branch, relTime(p.modified)].filter(Boolean).join(' · ');
+      el.querySelector('.cnt').textContent = p.sessionCount || 0;
+      el.addEventListener('click', () => pickProject(p));
+      return el;
+    }
+    function renderBrowse() {
+      const q = (browseQuery || '').toLowerCase().trim();
+      if (browseView === 'projects') {
+        blist.innerHTML = '';
+        const filtered = projects.filter((p) => !q ||
+          (p.name || '').toLowerCase().includes(q) || (p.path || '').toLowerCase().includes(q) || (p.branch || '').toLowerCase().includes(q));
+        if (!filtered.length) { blist.innerHTML = '<div class="bempty">' + (q ? 'No matches.' : 'No projects yet.<br>Start a chat on your Mac first.') + '</div>'; return; }
+        const groups = new Map();
+        for (const p of filtered) { const g = groupName(p); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(p); }
+        for (const [g, list] of groups) {
+          const h = document.createElement('div'); h.className = 'bgroup';
+          h.innerHTML = '<span></span><span class="gc"></span>';
+          h.children[0].textContent = g; h.children[1].textContent = list.length;
+          blist.appendChild(h);
+          for (const p of list) blist.appendChild(projectRow(p));
+        }
+      } else if (browseView === 'sessions') {
+        blist.innerHTML = '';
+        const nc = document.createElement('div');
+        nc.className = 'brow newchat';
+        nc.textContent = '+ New chat here';
+        nc.addEventListener('click', newChat);
+        blist.appendChild(nc);
+        const filtered = sessions.filter((s) => !q || (s.title || '').toLowerCase().includes(q));
+        if (!filtered.length) {
+          const e = document.createElement('div'); e.className = 'bempty';
+          e.textContent = sessionsLoading ? 'Loading conversations…' : (q ? 'No matches.' : 'No past conversations here yet.');
+          blist.appendChild(e);
+        } else {
+          for (const s of filtered) {
+            const meta = [(s.messageCount || 0) + ' msgs', relTime(s.modified)].filter(Boolean).join(' · ');
+            blist.appendChild(row('💬', s.title || 'Untitled', meta, '↩', () => resume(s)));
+          }
+        }
+      }
+    }
+
+    // --- Image attachments (pick / paste, downscale, upload) ---
+    function updateSend() {
+      if (streaming) { sendBtn.className = 'iconbtn stop'; sendBtn.innerHTML = STOP; sendBtn.disabled = false; }
+      else { sendBtn.className = 'iconbtn'; sendBtn.innerHTML = ARROW; sendBtn.disabled = !(input.value.trim() || attachments.length); }
+    }
+    function renderThumbs() {
+      thumbs.innerHTML = '';
+      for (const a of attachments) {
+        const d = document.createElement('div'); d.className = 'thumb';
+        const im = document.createElement('img'); im.src = a.url;
+        const rm = document.createElement('button'); rm.className = 'rm'; rm.textContent = '×';
+        rm.addEventListener('click', () => { URL.revokeObjectURL(a.url); attachments = attachments.filter((x) => x.id !== a.id); renderThumbs(); updateSend(); });
+        d.appendChild(im); d.appendChild(rm); thumbs.appendChild(d);
+      }
+    }
+    // Draw into a canvas and export JPEG: shrinks big photos and normalises
+    // HEIC/whatever into a format Claude's Read tool can open.
+    function downscale(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const max = 1600; let w = img.width, h = img.height;
+          if (w > max || h > max) { const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          c.toBlob((b) => resolve(b || file), 'image/jpeg', 0.85);
+        };
+        img.onerror = () => resolve(file);
+        img.src = URL.createObjectURL(file);
+      });
+    }
+    function addFiles(list) {
+      for (const f of list) {
+        if (!f.type || !f.type.startsWith('image/')) continue;
+        downscale(f).then((blob) => {
+          attachments.push({ id: 'a' + Math.random().toString(36).slice(2), url: URL.createObjectURL(blob), blob });
+          renderThumbs(); updateSend();
+        });
+      }
+    }
+    async function uploadAll() {
+      const paths = [];
+      for (const a of attachments) {
+        try {
+          const res = await fetch('/upload', { method: 'POST', headers: { 'Content-Type': a.blob.type || 'image/jpeg' }, body: a.blob });
+          const j = await res.json();
+          if (j && j.path) paths.push(j.path);
+        } catch (e) { /* skip a failed upload */ }
+      }
+      return paths;
+    }
+
+    async function submit() {
+      if (streaming) { send({ type: 'chatStop' }); return; }
+      const text = input.value.trim();
+      if (!text && !attachments.length) return;
+      let payload = text;
+      if (attachments.length) {
+        sendBtn.disabled = true;
+        const paths = await uploadAll();
+        if (paths.length) {
+          const lead = text ? text + '\n\nAttached image(s) — view them with the Read tool:' : 'Please view the attached image(s) using the Read tool:';
+          payload = lead + '\n' + paths.join('\n');
+        }
+        attachments.forEach((a) => URL.revokeObjectURL(a.url));
+        attachments = []; renderThumbs();
+      }
+      if (!payload) { updateSend(); return; }
+      send({ type: 'chatSend', text: payload });
+      input.value = ''; autosize(); updateSend();
+    }
+    function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px'; }
+
+    // --- Terminal (interactive shell via PTY; xterm.js is loaded on demand) ---
+    function b64encode(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+    function loadXterm() {
+      if (window.Terminal && window.FitAddon) return Promise.resolve();
+      if (xtermLoading) return xtermLoading;
+      xtermLoading = new Promise((resolve, reject) => {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css';
+        document.head.appendChild(css);
+        const s1 = document.createElement('script');
+        s1.src = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js';
+        s1.onload = () => {
+          const s2 = document.createElement('script');
+          s2.src = 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js';
+          s2.onload = () => resolve();
+          s2.onerror = reject;
+          document.head.appendChild(s2);
+        };
+        s1.onerror = reject;
+        document.head.appendChild(s1);
+      });
+      return xtermLoading;
+    }
+    function activeTerm() { return terms.find((t) => t.id === activeTermId) || null; }
+    function fitTerminal() {
+      const t = activeTerm(); if (!t) return;
+      try { t.fitAddon.fit(); send({ type: 'termResize', termId: t.id, cols: t.term.cols, rows: t.term.rows }); } catch (e) {}
+    }
+    function paintTabColor(el, color, active) {
+      if (color && active) { el.style.background = color; el.style.color = '#0b0e13'; }
+      else { el.style.background = ''; el.style.color = ''; }
+    }
+    function renderTabs() {
+      const box = $('termTabs'); box.innerHTML = '';
+      terms.forEach((t) => {
+        const el = document.createElement('div');
+        const active = t.id === activeTermId;
+        el.className = 'ttab' + (active ? ' active' : '');
+        const label = document.createElement('span'); label.textContent = t.title || 'sh'; el.appendChild(label);
+        paintTabColor(el, t.color, active);
+        const x = document.createElement('span'); x.className = 'x'; x.textContent = '×';
+        x.addEventListener('click', (e) => { e.stopPropagation(); closeTerm(t.id); });
+        el.appendChild(x);
+        // Tapping the active tab opens rename/colour; another tab activates it.
+        el.addEventListener('click', () => { if (active) openTermEdit(t.id); else activateTerm(t.id); });
+        box.appendChild(el);
+      });
+      const add = document.createElement('div'); add.className = 'ttab add'; add.textContent = '+';
+      add.addEventListener('click', () => newTerm());
+      box.appendChild(add);
+    }
+    function activateTerm(id) {
+      activeTermId = id;
+      terms.forEach((t) => t.pane.classList.toggle('active', t.id === id));
+      renderTabs();
+      const t = activeTerm();
+      if (t) setTimeout(() => { try { t.fitAddon.fit(); } catch (e) {} t.term.focus(); }, 30);
+    }
+    function createLocalTab(id, title, color) {
+      const pane = document.createElement('div'); pane.className = 'termpane'; termBox.appendChild(pane);
+      const t = new Terminal({ fontSize: 13, cursorBlink: true, theme: { background: '#0b0e13', foreground: '#e6e8ec' } });
+      const fit = new FitAddon.FitAddon(); t.loadAddon(fit); t.open(pane);
+      const entry = { id, term: t, fitAddon: fit, pane, title: title || ('sh ' + (terms.length + 1)), color: color || '' };
+      terms.push(entry);
+      t.onData((d) => {
+        if (ctrlArmed && d.length === 1) {
+          const code = d.toUpperCase().charCodeAt(0);
+          if (code >= 64 && code <= 95) d = String.fromCharCode(code & 0x1f);
+          ctrlArmed = false; updateCtrl();
+        }
+        send({ type: 'termInput', termId: id, data: b64encode(d) });
+      });
+      return entry;
+    }
+    async function newTerm() {
+      try { await loadXterm(); } catch (e) { termBox.textContent = 'Could not load the terminal (it needs internet the first time).'; return; }
+      const id = 't' + Math.random().toString(36).slice(2);
+      const entry = createLocalTab(id, '', '');
+      activateTerm(id);
+      send({ type: 'termOpen', termId: id, projectId: activeProjectId || undefined, cols: entry.term.cols, rows: entry.term.rows });
+      setTimeout(fitTerminal, 120);
+    }
+    function disposeLocal(id) {
+      const idx = terms.findIndex((t) => t.id === id); if (idx < 0) return;
+      try { terms[idx].term.dispose(); } catch (e) {}
+      terms[idx].pane.remove(); terms.splice(idx, 1);
+      if (activeTermId === id) activeTermId = terms.length ? terms[Math.max(0, idx - 1)].id : null;
+    }
+    // Reconcile local tabs with the server's shared list (other devices + reconnects).
+    async function reconcileTerms() {
+      try { await loadXterm(); } catch (e) { return; }
+      for (const local of terms.slice()) if (!serverTerms.find((s) => s.id === local.id)) disposeLocal(local.id);
+      for (const s of serverTerms) {
+        let t = terms.find((x) => x.id === s.id);
+        if (!t) {
+          t = createLocalTab(s.id, s.title, s.color);
+          send({ type: 'termOpen', termId: s.id, projectId: s.projectId || activeProjectId || undefined, cols: t.term.cols, rows: t.term.rows });
+        } else { t.title = s.title; t.color = s.color; }
+      }
+      if (!activeTerm() && terms.length) activeTermId = terms[0].id;
+      terms.forEach((t) => t.pane.classList.toggle('active', t.id === activeTermId));
+      renderTabs();
+    }
+    function closeTerm(id) {
+      send({ type: 'termClose', termId: id });
+      disposeLocal(id);
+      if (!terms.length) { setView('chat'); return; }
+      activateTerm(activeTermId || terms[0].id);
+    }
+    async function openTerminal() {
+      setView('terminal');
+      renderKeys();
+      try { await loadXterm(); } catch (e) { termBox.textContent = 'Could not load the terminal (it needs internet the first time).'; return; }
+      if (serverTerms.length) { await reconcileTerms(); activateTerm(activeTermId || terms[0].id); }
+      else if (!terms.length) { await newTerm(); }
+      else { activateTerm(activeTermId || terms[0].id); }
+      setTimeout(fitTerminal, 120);
+    }
+    // --- Rename / recolour a tab (shared to all devices) ---
+    function renderSwatches() {
+      const box = $('teSwatches'); box.innerHTML = '';
+      for (const c of TCOLORS) {
+        const s = document.createElement('div'); s.className = 'sw' + (c ? '' : ' none') + (c === editColor ? ' sel' : '');
+        if (c) s.style.background = c;
+        s.addEventListener('click', () => { editColor = c; renderSwatches(); });
+        box.appendChild(s);
+      }
+    }
+    function openTermEdit(id) {
+      const t = terms.find((x) => x.id === id); if (!t) return;
+      editTermId = id; editColor = t.color || '';
+      $('teName').value = t.title || '';
+      renderSwatches();
+      $('termEditScrim').classList.add('show'); $('termEdit').classList.add('show');
+      setTimeout(() => $('teName').focus(), 80);
+    }
+    function closeTermEdit() { $('termEditScrim').classList.remove('show'); $('termEdit').classList.remove('show'); editTermId = null; }
+    function saveTermEdit() {
+      if (!editTermId) { closeTermEdit(); return; }
+      const name = $('teName').value.trim();
+      send({ type: 'termRename', termId: editTermId, text: name, color: editColor });
+      const t = terms.find((x) => x.id === editTermId);
+      if (t) { if (name) t.title = name; t.color = editColor; renderTabs(); }
+      closeTermEdit();
+    }
+
+    // Helper keys the phone keyboard lacks (Esc, Tab, Ctrl, arrows, symbols).
+    const TKEYS = [
+      { l: 'esc', s: '\x1b' }, { l: 'tab', s: '\t' }, { l: '⇧tab', s: '\x1b[Z' }, { l: 'ctrl', ctrl: true },
+      { l: '▲', s: '\x1b[A' }, { l: '▼', s: '\x1b[B' }, { l: '◀', s: '\x1b[D' }, { l: '▶', s: '\x1b[C' },
+      { l: '⌃C', s: '\x03' }, { l: 'enter', s: '\r' }, { l: 'space', s: ' ' },
+      { l: '~', s: '~' }, { l: '/', s: '/' }, { l: '-', s: '-' }, { l: '|', s: '|' }, { l: 'paste', paste: true },
+    ];
+    function renderKeys() {
+      const box = $('termKeys'); if (box.childElementCount) return;
+      for (const k of TKEYS) {
+        const b = document.createElement('button'); b.className = 'tkey'; b.textContent = k.l;
+        if (k.ctrl) b.id = 'ctrlKey';
+        b.addEventListener('click', () => onKey(k));
+        box.appendChild(b);
+      }
+    }
+    function updateCtrl() { const b = $('ctrlKey'); if (b) b.classList.toggle('on', ctrlArmed); }
+    function onKey(k) {
+      const t = activeTerm(); if (!t) return;
+      if (k.ctrl) { ctrlArmed = !ctrlArmed; updateCtrl(); t.term.focus(); return; }
+      if (k.paste) {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          navigator.clipboard.readText().then((txt) => { if (txt) send({ type: 'termInput', termId: t.id, data: b64encode(txt) }); }).catch(() => {});
+        }
+        t.term.focus(); return;
+      }
+      send({ type: 'termInput', termId: t.id, data: b64encode(k.s) });
+      t.term.focus();
+    }
+
+    // --- Files browser + code viewer ---
+    function openFiles() { setView('files'); viewFiles.classList.remove('file'); pendingRoot = true; send({ type: 'listDir', file: '', projectId: activeProjectId || undefined }); }
+    function navDir(path) { send({ type: 'listDir', file: path, projectId: activeProjectId || undefined }); }
+    function relPath(p) { if (fileRoot && p.indexOf(fileRoot) === 0) return p.slice(fileRoot.length).replace(/^\//, ''); return p; }
+    function fmtSize(n) { if (!n) return ''; if (n < 1024) return n + ' B'; if (n < 1048576) return Math.round(n / 1024) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
+    function renderCrumb() {
+      fcrumb.innerHTML = '';
+      const home = document.createElement('span'); home.className = 'seg'; home.textContent = '🏠';
+      home.addEventListener('click', () => navDir(fileRoot)); fcrumb.appendChild(home);
+      const rel = relPath(filesPath); if (!rel) return;
+      let acc = fileRoot;
+      for (const part of rel.split('/')) {
+        acc += '/' + part;
+        const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '/'; fcrumb.appendChild(sep);
+        const seg = document.createElement('span'); seg.className = 'seg'; seg.textContent = part;
+        const target = acc; seg.addEventListener('click', () => navDir(target)); fcrumb.appendChild(seg);
+      }
+    }
+    function renderFiles() {
+      renderCrumb();
+      flist.innerHTML = '';
+      if (!filesPath) { fcrumb.innerHTML = ''; flist.innerHTML = '<div class="bempty">Open a project first (Projects tab)<br>to browse its files.</div>'; return; }
+      if (!fileEntries.length) { flist.innerHTML = '<div class="bempty">Empty folder.</div>'; return; }
+      for (const e of fileEntries) {
+        const row = document.createElement('div'); row.className = 'frow';
+        row.innerHTML = '<span class="fi"></span><span class="fn"></span><span class="fsz"></span>';
+        row.querySelector('.fi').textContent = e.isDir ? '📁' : '📄';
+        row.querySelector('.fn').textContent = e.name;
+        row.querySelector('.fsz').textContent = e.isDir ? '' : fmtSize(e.size);
+        const full = filesPath + '/' + e.name;
+        row.addEventListener('click', () => { if (e.isDir) navDir(full); else openFile(full); });
+        flist.appendChild(row);
+      }
+    }
+    function openFile(path) { curFile = path; send({ type: 'readFile', file: path, projectId: activeProjectId || undefined }); }
+    function loadHljs() {
+      if (window.hljs) return Promise.resolve();
+      if (hljsLoading) return hljsLoading;
+      hljsLoading = new Promise((resolve, reject) => {
+        const css = document.createElement('link'); css.rel = 'stylesheet';
+        css.href = 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css';
+        document.head.appendChild(css);
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js';
+        s.onload = () => resolve(); s.onerror = reject; document.head.appendChild(s);
+      });
+      return hljsLoading;
+    }
+    async function showFile(path, content, truncated) {
+      curFile = path;
+      viewFiles.classList.add('file'); setView('files');
+      fvtitle.textContent = relPath(path) || path.split('/').pop();
+      fvcode.className = ''; fvcode.removeAttribute('data-highlighted');
+      fvcode.textContent = content + (truncated ? '\n\n… (truncated)' : '');
+      try { await loadHljs(); if (window.hljs) hljs.highlightElement(fvcode); } catch (e) {}
+      fvbody.scrollTop = 0;
+    }
+    function useInChat() {
+      input.value = 'About `' + (relPath(curFile) || curFile) + '`: ';
+      setView('chat'); autosize(); updateSend();
+      setTimeout(() => input.focus(), 60);
+    }
+
+    // --- Projects dashboard banner ---
+    function renderDash() {
+      if (!activeProject) { dash.innerHTML = ''; return; }
+      const card = document.createElement('div'); card.className = 'dashcard';
+      card.innerHTML = '<div class="dl"><span class="dname"></span><span class="dpill"></span></div><div class="dsub"></div>';
+      card.querySelector('.dname').textContent = activeProject;
+      const pill = card.querySelector('.dpill');
+      pill.textContent = streaming ? 'Running' : 'Idle';
+      pill.className = 'dpill ' + (streaming ? 'run' : 'idle');
+      const sub = [streaming ? (lastStatus || 'Working…') : 'Idle'];
+      if (sessionCost > 0) sub.push('$' + sessionCost.toFixed(3));
+      card.querySelector('.dsub').textContent = sub.join(' · ');
+      card.addEventListener('click', () => setView('chat'));
+      dash.innerHTML = ''; dash.appendChild(card);
+    }
+
+    sendBtn.addEventListener('click', () => { ensureNotify(); unlockAudio(); submit(); });
+    attachBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+    input.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items; if (!items) return;
+      const imgs = [];
+      for (const it of items) { if (it.type && it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) imgs.push(f); } }
+      if (imgs.length) { e.preventDefault(); addFiles(imgs); }
+    });
+    // Bottom navigation (labeled screens)
+    $('navProjects').addEventListener('click', showProjects);
+    $('navChat').addEventListener('click', () => setView('chat'));
+    $('navTerminal').addEventListener('click', () => { unlockAudio(); openTerminal(); });
+    $('navFiles').addEventListener('click', openFiles);
+    $('fvback').addEventListener('click', () => viewFiles.classList.remove('file'));
+    $('fvuse').addEventListener('click', useInChat);
+    $('teSave').addEventListener('click', saveTermEdit);
+    $('termEditScrim').addEventListener('click', closeTermEdit);
+    // ⋯ menu
+    $('menuBtn').addEventListener('click', openMenu);
+    menuScrim.addEventListener('click', closeMenu);
+    hback.addEventListener('click', goBack);
+    $('miHistory').addEventListener('click', showHistory);
+    $('new').addEventListener('click', newChat);
+    $('auto').addEventListener('click', toggleAuto);
+    $('miTest').addEventListener('click', testNotify);
+    $('miNotify').addEventListener('click', enableNotify);
+    $('miInstall').addEventListener('click', doInstall);
+    $('installClose').addEventListener('click', closeInstallHelp);
+    $('installScrim').addEventListener('click', closeInstallHelp);
+    $('restart').addEventListener('click', doRestart);
+    $('bsearch').addEventListener('input', (e) => { browseQuery = e.target.value; renderBrowse(); });
+    input.addEventListener('input', () => { autosize(); updateSend(); });
+    $('pyes').addEventListener('click', () => { if (permission) send({ type: 'permissionResponse', permissionId: permission.id, allow: true }); });
+    $('palways').addEventListener('click', () => { if (permission) send({ type: 'permissionResponse', permissionId: permission.id, allow: true, remember: true }); });
+    $('pno').addEventListener('click', () => { if (permission) send({ type: 'permissionResponse', permissionId: permission.id, allow: false }); });
+    // Unlock audio on the very first interaction so the "done" sound can ring.
+    window.addEventListener('pointerdown', unlockAudio);
+    updateSend();
+    setView('projects');   // projects-first home, like Orca
+
+    // Ride above the keyboard: match the VISUAL viewport height and shift down
+    // by its offset, so the footer sits just above the keyboard (not under it).
+    if (window.visualViewport) {
+      const vv = window.visualViewport;
+      const fit = () => {
+        document.body.style.height = vv.height + 'px';
+        document.body.style.transform = 'translateY(' + vv.offsetTop + 'px)';
+        if (isNearBottom()) log.scrollTop = log.scrollHeight;
+        if (termPanel.classList.contains('show')) fitTerminal();
+      };
+      vv.addEventListener('resize', fit);
+      vv.addEventListener('scroll', fit);
+      fit();
+    }
+    function isNearBottom() { return log.scrollHeight - log.scrollTop - log.clientHeight < 120; }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+    connect();
+  </script>
+</body>
+</html>

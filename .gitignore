@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Swift / SwiftPM
+apps/macos/.build/
+apps/macos/.swiftpm/
+apps/macos/*.xcodeproj/xcuserdata/
+DerivedData/
+
+# Node / VS Code extension
+node_modules/
+extensions/dev-dock-vscode/out/
+extensions/dev-dock-vscode/*.vsix
+*.log

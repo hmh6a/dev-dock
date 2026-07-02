@@ -1,0 +1,16 @@
+{
+  "name": "dev-dock-server",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cross-platform (Linux/macOS/Windows) headless dev-dock: serves the PWA + WebSocket bridge and drives Claude Code, terminals, files and project history. Use it from the browser or the VS Code extension.",
+  "bin": { "dev-dock-server": "./index.mjs" },
+  "scripts": {
+    "start": "node index.mjs",
+    "postinstall": "node scripts/fix-node-pty.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "node-pty": "^1.0.0"
+  }
+}
