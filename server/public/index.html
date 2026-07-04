@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#0b0e13" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -11,183 +12,280 @@
   <link rel="apple-touch-icon" href="/icon-180.png" />
   <title>dev-dock</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #0a0d13; --surface: #12161d; --surface-2: #171d26; --surface-3: #1e2530;
+      --line: #232b37; --line-2: #2c3542;
+      --text: #eaecf1; --dim: #98a1b0; --faint: #6a7482;
+      --accent: #4f8dff; --accent-2: #2f6fed; --accent-soft: rgba(79,141,255,.15);
+      --green: #46c25a; --red: #ec5b60; --amber: #e2a53b;
+      --r: 14px; --r-sm: 10px; --r-lg: 20px;
+      --shadow: 0 10px 34px rgba(0,0,0,.45);
+    }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; }
     /* Pinned to the top of the layout viewport; JS sets the height to the
        VISUAL viewport (and translates by its offset) so the composer rides
-       just above the on-screen keyboard instead of being covered by it.
-       Note: no `bottom`/`inset` — with top+bottom both set, an explicit
-       height is ignored, which is exactly what broke the keyboard layout. */
+       just above the on-screen keyboard instead of being covered by it. */
     body {
       position: fixed; top: 0; left: 0; right: 0; height: 100dvh;
-      font-family: -apple-system, system-ui, sans-serif; background: #0b0e13; color: #e6e8ec;
-      display: flex; flex-direction: column; overflow: hidden;
+      font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column; overflow: hidden; -webkit-font-smoothing: antialiased;
     }
-    header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; flex: none; border-bottom: 1px solid #1c212b;
-      padding-top: calc(12px + env(safe-area-inset-top)); }
-    .dot { width: 9px; height: 9px; border-radius: 50%; background: #6b7280; flex: none; }
-    .dot.on { background: #3fb950; }
-    .htitle { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    .htitle .title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .htitle .status { color: #8b93a1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .hbtn { background: #1c212b; color: #c7ccd6; border: none; border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1; flex: none; }
-    .hbtn.on { background: rgba(63,185,80,0.18); color: #3fb950; }
-    #log { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
-    .msg { max-width: 86%; padding: 9px 12px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.45; font-size: 15px; }
-    .user { align-self: flex-end; background: #2f6fed; color: #fff; border-bottom-right-radius: 4px; }
-    .assistant { align-self: flex-start; background: #171b23; border-bottom-left-radius: 4px; }
-    .assistant.error { background: rgba(248,81,73,0.16); }
-    .msg.working { display: flex; align-items: center; gap: 9px; color: #9aa3b2; }
-    .msg.working .wdot { width: 8px; height: 8px; border-radius: 50%; background: #6ea8ff; flex: none; animation: wpulse 1.1s ease-in-out infinite; }
-    .msg.working .wtext { font-size: 14px; }
-    @keyframes wpulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
-    .msg img.attach { max-width: min(220px, 70vw); max-height: 240px; border-radius: 10px; display: block; }
+    header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex: none;
+      border-bottom: 1px solid var(--line); background: var(--surface);
+      padding-top: calc(10px + env(safe-area-inset-top)); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; box-shadow: 0 0 0 3px rgba(255,255,255,.03); }
+    .dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(70,194,90,.18); }
+    .htitle { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .htitle .title { font-weight: 700; font-size: 16px; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .htitle .status { color: var(--dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hbtn { background: var(--surface-2); color: #c7ccd6; border: 1px solid var(--line); border-radius: 10px; min-width: 38px; min-height: 34px; padding: 7px 11px; font-size: 15px; line-height: 1; flex: none; }
+    .hbtn.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+    #log { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 88%; padding: 10px 14px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; line-height: 1.5; font-size: 15.5px; box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+    .user { align-self: flex-end; background: linear-gradient(180deg, #3b78f0, #2f6fed); color: #fff; border-bottom-right-radius: 6px; }
+    .assistant { align-self: flex-start; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+    .assistant.error { background: rgba(236,91,96,0.14); border-color: rgba(236,91,96,0.4); }
+    .msg.working { display: flex; align-items: center; gap: 10px; color: var(--dim); }
+    .msg.working .wdot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; animation: wpulse 1.1s ease-in-out infinite; box-shadow: 0 0 10px rgba(79,141,255,.7); }
+    .msg.working .wtext { font-size: 14.5px; }
+    @keyframes wpulse { 0%, 100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+    .msg img.attach { max-width: min(240px, 72vw); max-height: 260px; border-radius: 12px; display: block; }
     .msg img.attach + img.attach { margin-top: 6px; }
-    .msg .cap { margin-top: 6px; }
-    .tool { align-self: flex-start; font-size: 12px; color: #8b93a1; display: flex; gap: 6px; align-items: center; }
-    .tool .tdot { width: 6px; height: 6px; border-radius: 50%; background: #3fb950; }
-    .empty { color: #8b93a1; font-size: 14px; padding: 16px; text-align: center; margin: auto; }
-    #perm { margin: 10px 12px; padding: 12px; border-radius: 12px; background: #171b23; border: 1px solid #2f6fed; display: none; }
+    .msg .cap { margin-top: 7px; }
+    /* Per-message timestamp (small, muted, inside the bubble). */
+    .msg .mtime { font-size: 10.5px; margin-top: 5px; opacity: .6; line-height: 1; }
+    .user .mtime { text-align: right; }
+    .assistant .mtime { text-align: left; }
+    .tool { align-self: flex-start; font-size: 12.5px; color: var(--dim); display: flex; gap: 7px; align-items: center; background: var(--surface); border: 1px solid var(--line); padding: 5px 11px; border-radius: 999px; }
+    /* A tool chip now carries the "what" (file/command) + a time on the right. */
+    .tool .ttime { margin-left: auto; padding-left: 10px; font-size: 11px; opacity: .7; }
+    .tool .tdot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex: none; }
+    .empty { color: var(--dim); font-size: 14.5px; padding: 20px; text-align: center; margin: auto; line-height: 1.5; }
+    #perm { margin: 10px 12px; padding: 14px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); display: none; }
     #perm.show { display: block; }
-    #perm .pt { font-weight: 600; margin-bottom: 6px; }
-    #perm pre { margin: 0 0 10px; padding: 9px; border-radius: 8px; background: #0b0e13; overflow: auto; max-height: 160px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    #perm .pt { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+    #perm pre { margin: 0 0 12px; padding: 10px 11px; border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--line); overflow: auto; max-height: 170px; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
     #perm .prow { display: flex; gap: 8px; }
-    #perm button { flex: 1; border: none; border-radius: 9px; padding: 11px; font-size: 15px; font-weight: 600; }
-    #perm .yes { background: #2ea043; color: #fff; }
-    #perm .always { background: #194b31; color: #cde6d6; }
-    #perm .no { background: #262c38; color: #e6e8ec; }
-    #thumbs { display: flex; gap: 6px; padding: 8px 12px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: none; }
+    #perm button { flex: 1; border: none; border-radius: 11px; padding: 13px; font-size: 15px; font-weight: 700; }
+    #perm .yes { background: var(--green); color: #06210d; }
+    #perm .always { background: rgba(70,194,90,.16); color: #b7e6c2; }
+    #perm .no { background: var(--surface-3); color: var(--text); }
+    #thumbs { display: flex; gap: 8px; padding: 8px 12px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: none; }
     #thumbs:empty { display: none; }
     .thumb { position: relative; flex: none; }
-    .thumb img { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; display: block; }
-    .thumb .rm { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: none; background: #000; color: #fff; font-size: 13px; line-height: 1; padding: 0; display: grid; place-items: center; }
-    footer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #1c212b; align-items: flex-end; flex: none;
-      padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-    #input { flex: 1; resize: none; max-height: 140px; min-height: 44px; padding: 11px 12px; border-radius: 12px; background: #171b23; color: #e6e8ec; border: 1px solid #262c38; font: inherit; font-size: 16px; }
-    .iconbtn { flex: none; width: 44px; height: 44px; border: none; border-radius: 50%; padding: 0; display: grid; place-items: center; }
-    #attach { background: #1c212b; color: #c7ccd6; font-size: 24px; line-height: 0; }
-    #send { background: #2f6fed; color: #fff; }
-    #send svg { width: 21px; height: 21px; display: block; }
-    #send.stop { background: #e5484d; }
-    #send:disabled { opacity: .4; }
+    .thumb img { width: 58px; height: 58px; object-fit: cover; border-radius: 10px; display: block; border: 1px solid var(--line); }
+    .thumb .rm { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--bg); background: #000; color: #fff; font-size: 13px; line-height: 1; padding: 0; display: grid; place-items: center; }
+    /* The composer never carries the bottom safe-area inset — the tab bar below
+       it owns that (and when the keyboard is up the tab bar is hidden, so the
+       composer rides directly on the keyboard). Doubling the inset here is what
+       lifted the footer up off the bottom. */
+    footer { display: flex; gap: 8px; padding: 9px 10px; border-top: 1px solid var(--line); align-items: flex-end; flex: none; background: var(--surface); }
+    #input { flex: 1; resize: none; max-height: 140px; min-height: 46px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 16px; line-height: 1.3; }
+    .iconbtn { flex: none; width: 46px; height: 46px; border: none; border-radius: 50%; padding: 0; display: grid; place-items: center; }
+    #attach { background: var(--surface-3); color: #c7ccd6; font-size: 25px; line-height: 0; }
+    #send { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: 0 4px 14px rgba(47,111,237,.4); }
+    #send svg { width: 22px; height: 22px; display: block; }
+    #send.stop { background: var(--red); box-shadow: 0 4px 14px rgba(236,91,96,.4); }
+    #send:disabled { opacity: .4; box-shadow: none; }
     /* In-app toast (works even in a Safari tab where OS notifications don't) */
-    #toast { position: absolute; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-8px);
-      z-index: 40; background: #171b23; border: 1px solid #2f6fed; color: #e6e8ec; padding: 10px 14px; border-radius: 12px;
-      font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.45); max-width: 82%; text-align: center;
+    #toast { position: absolute; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-10px);
+      z-index: 40; background: var(--surface-2); border: 1px solid var(--accent); color: var(--text); padding: 11px 16px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; box-shadow: var(--shadow); max-width: 82%; text-align: center;
       opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     /* Screens: exactly one is shown between the header and the bottom nav. */
     .view { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; }
     .view.show { display: flex; }
     /* Bottom navigation (labeled, replaces the cryptic header glyphs) */
-    #tabbar { display: flex; flex: none; border-top: 1px solid #1c212b; background: #0b0e13; padding-bottom: env(safe-area-inset-bottom); }
-    #tabbar button { flex: 1; background: none; border: none; color: #8b93a1; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; }
-    #tabbar button .ni { font-size: 20px; line-height: 1; }
-    #tabbar button.on { color: #4a8cff; }
+    #tabbar { display: flex; flex: none; border-top: 1px solid var(--line); background: var(--surface); padding-bottom: env(safe-area-inset-bottom); }
+    #tabbar button { flex: 1; background: none; border: none; color: var(--dim); padding: 9px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; position: relative; min-height: 52px; }
+    #tabbar button .ni { font-size: 22px; line-height: 1; }
+    #tabbar button.on { color: var(--accent); }
+    /* Active-tab accent bar along the top edge of the button. */
+    #tabbar button.on::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); }
+    /* Keyboard up → hide the tab bar so the composer/terminal sits on the keyboard. */
+    body.kb-open #tabbar { display: none; }
     /* ⋯ menu (bottom sheet with labeled actions) */
-    #menuScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.45); display: none; }
+    #menuScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.5); display: none; }
     #menuScrim.show { display: block; }
-    #menu { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: #12161f; border-top: 1px solid #262c38;
-      border-radius: 16px 16px 0 0; padding: 10px 10px calc(12px + env(safe-area-inset-bottom)); transform: translateY(110%); transition: transform .22s ease; }
+    #menu { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: var(--surface); border-top: 1px solid var(--line-2);
+      border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 8px 10px calc(12px + env(safe-area-inset-bottom)); transform: translateY(110%); transition: transform .24s cubic-bezier(.32,.72,0,1); box-shadow: var(--shadow); }
     #menu.show { transform: translateY(0); }
-    .mitem { display: flex; align-items: center; gap: 13px; width: 100%; background: none; border: none; color: #e6e8ec; font-size: 16px; padding: 13px 10px; border-radius: 10px; text-align: left; }
-    .mitem:active { background: #1c212b; }
-    .mitem .mi { font-size: 18px; width: 22px; text-align: center; flex: none; }
+    #menu::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 999px; background: var(--line-2); margin: 6px auto 8px; }
+    .mitem { display: flex; align-items: center; gap: 14px; width: 100%; background: none; border: none; color: var(--text); font-size: 16px; padding: 14px 10px; border-radius: 12px; text-align: left; }
+    .mitem:active { background: var(--surface-3); }
+    .mitem .mi { font-size: 19px; width: 24px; text-align: center; flex: none; }
     .mitem .ml { flex: 1; }
-    .mitem .mstate { color: #8b93a1; font-size: 13px; font-weight: 600; }
-    .mitem.on .mstate { color: #3fb950; }
-    .mitem.danger { color: #f0776c; }
+    .mitem .mstate { color: var(--dim); font-size: 13px; font-weight: 600; }
+    .mitem.on .mstate { color: var(--green); }
+    .mitem.danger { color: var(--red); }
     /* Terminal live-input hint */
-    #termHint { flex: none; text-align: center; color: #6b7280; font-size: 11px; padding: 5px 8px 0; }
+    #termHint { flex: none; text-align: center; color: var(--faint); font-size: 11px; padding: 5px 8px 0; }
     /* Projects dashboard banner */
     #dash { flex: none; }
     #dash:empty { display: none; }
-    .dashcard { margin: 10px 12px 2px; padding: 12px 14px; border-radius: 12px; background: #12161f; border: 1px solid #23324d; }
+    .dashcard { margin: 12px 12px 2px; padding: 13px 15px; border-radius: var(--r); background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--line-2); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
     .dashcard .dl { display: flex; align-items: center; gap: 8px; }
-    .dashcard .dname { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dashcard .dpill { flex: none; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
-    .dashcard .dpill.run { background: rgba(63,185,80,0.18); color: #3fb950; }
-    .dashcard .dpill.idle { background: #1c212b; color: #8b93a1; }
-    .dashcard .dsub { color: #8b93a1; font-size: 12px; margin-top: 5px; }
+    .dashcard .dname { font-weight: 700; font-size: 15.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dashcard .dpill { flex: none; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+    .dashcard .dpill.run { background: rgba(70,194,90,0.18); color: var(--green); }
+    .dashcard .dpill.idle { background: var(--surface-3); color: var(--dim); }
+    .dashcard .dsub { color: var(--dim); font-size: 12.5px; margin-top: 6px; }
     /* Files browser + code viewer */
     #viewFiles #fbrowse, #viewFiles #fviewer { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
     #viewFiles.file #fbrowse { display: none; }
     #viewFiles:not(.file) #fviewer { display: none; }
-    #fcrumb { flex: none; display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #1c212b; font-size: 12px; color: #8b93a1; }
-    #fcrumb .seg { color: #6ea8ff; }
-    #fcrumb .sep { color: #3a4150; }
-    #flist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; }
-    .frow { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; background: #12151c; }
-    .frow .fi { flex: none; font-size: 16px; }
-    .frow .fn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-    .frow .fsz { flex: none; color: #6b7280; font-size: 11px; }
-    #fvbody { flex: 1; min-height: 0; margin: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px; background: #0b0e13; }
-    #fvbody code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre; line-height: 1.5; }
-    #fvbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #1c212b; }
-    #fvtitle { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #fvuse { background: #2f6fed; color: #fff; }
+    #fcrumb { flex: none; display: flex; gap: 5px; flex-wrap: wrap; padding: 11px 12px; border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--dim); }
+    #fcrumb .seg { color: var(--accent); }
+    #fcrumb .sep { color: var(--faint); }
+    #flist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .frow { display: flex; align-items: center; gap: 11px; padding: 13px 13px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+    .frow:active { background: var(--surface-3); }
+    .frow .fi { flex: none; font-size: 17px; }
+    .frow .fn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; }
+    .frow .fsz { flex: none; color: var(--faint); font-size: 11px; }
+    #fvbody { flex: 1; min-height: 0; margin: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px; background: var(--bg); }
+    #fvbody code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; white-space: pre; line-height: 1.55; }
+    #fvbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+    #fvtitle { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #fvuse { background: var(--accent-2); color: #fff; }
     /* Project / conversation browser (now an in-flow screen) */
-    #browsePanel { background: #0b0e13; }
-    .bhead { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #1c212b; }
+    #browsePanel { background: var(--bg); }
+    .bhead { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
     .btitle { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #blist { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-    .brow { background: #171b23; border: 1px solid #212733; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 11px; }
-    .brow .ic { font-size: 17px; flex: none; }
+    .brow { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 13px 14px; display: flex; align-items: center; gap: 12px; }
+    .brow:active { background: var(--surface-3); }
+    .brow .ic { font-size: 18px; flex: none; }
     .brow .bbody { flex: 1; min-width: 0; }
-    .brow .rt { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .brow .rs { color: #8b93a1; font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .brow .chev { color: #5b6472; flex: none; font-size: 16px; }
-    .brow.newchat { border-style: dashed; color: #8bc0ff; justify-content: center; font-weight: 600; }
-    .bempty { color: #8b93a1; text-align: center; padding: 26px 16px; font-size: 14px; }
+    .brow .rt { font-weight: 600; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brow .rs { color: var(--dim); font-size: 11.5px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brow .chev { color: var(--faint); flex: none; font-size: 17px; }
+    .brow.newchat { border-style: dashed; border-color: var(--line-2); color: var(--accent); justify-content: center; font-weight: 700; background: transparent; }
+    .bempty { color: var(--dim); text-align: center; padding: 30px 16px; font-size: 14.5px; line-height: 1.5; }
     /* Filter + grouped project list */
-    #bsearch { flex: none; margin: 8px 12px 2px; padding: 9px 12px; border-radius: 10px; background: #171b23; color: #e6e8ec; border: 1px solid #262c38; font: inherit; font-size: 16px; }
-    .bgroup { display: flex; align-items: baseline; gap: 8px; padding: 14px 6px 4px; color: #8b93a1; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-    .bgroup .gc { color: #5b6472; font-weight: 600; }
-    .brow .st { width: 9px; height: 9px; border-radius: 50%; background: #3a4150; flex: none; }
-    .brow .st.on { background: #3fb950; }
-    .brow .cnt { color: #8b93a1; font-size: 13px; font-weight: 600; flex: none; margin-left: 4px; }
+    #bsearch { flex: none; margin: 10px 12px 2px; padding: 11px 13px; border-radius: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 16px; }
+    .bgroup { display: flex; align-items: baseline; gap: 8px; padding: 16px 6px 5px; color: var(--dim); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .bgroup .gc { color: var(--faint); font-weight: 600; }
+    .brow .st { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); flex: none; }
+    .brow .st.on { background: var(--green); box-shadow: 0 0 0 3px rgba(70,194,90,.18); }
+    .brow .cnt { color: var(--dim); font-size: 13px; font-weight: 700; flex: none; margin-left: 4px; background: var(--surface-3); padding: 2px 9px; border-radius: 999px; }
+    .brow .gitbtn { flex: none; font-size: 15px; line-height: 1; padding: 7px 9px; border-radius: 9px; background: var(--surface-3); border: 1px solid var(--line-2); color: var(--accent); }
+    .brow .gitbtn:active { background: var(--accent-soft); }
     /* Terminal screen */
-    #termPanel { background: #0b0e13; }
-    #termTabs { display: flex; gap: 5px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 7px 8px; border-bottom: 1px solid #1c212b; flex: none; }
-    .ttab { flex: none; display: flex; align-items: center; gap: 7px; max-width: 150px; padding: 6px 11px; border-radius: 8px; background: #171b23; color: #9aa3b2; font-size: 12px; white-space: nowrap; }
-    .ttab span:first-child { overflow: hidden; text-overflow: ellipsis; }
-    .ttab.active { background: #22304a; color: #fff; }
-    .ttab .x { opacity: .6; font-size: 14px; }
-    .ttab.add { color: #8bc0ff; font-weight: 700; padding: 6px 12px; }
+    #termPanel { background: var(--bg); }
+    #termTabs { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 8px; border-bottom: 1px solid var(--line); flex: none; }
+    .ttab { flex: none; display: flex; align-items: center; gap: 8px; max-width: 62vw; min-height: 38px; padding: 8px 13px; border-radius: 10px; background: var(--surface-2); color: var(--dim); font-size: 13.5px; white-space: nowrap; }
+    /* Per-tab colour dot — always visible so a tab keeps its colour even when
+       it isn't the active one. */
+    .ttab .tdotc { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #5b6472; box-shadow: 0 0 0 2px rgba(255,255,255,0.06); }
+    .ttab .tlabel { overflow: hidden; text-overflow: ellipsis; }
+    /* Active tab marker (independent of colour): brighter fill + a blue underline. */
+    .ttab.active { background: #22304a; color: #fff; box-shadow: inset 0 -3px 0 #4a8cff; }
+    .ttab.active .tdotc { box-shadow: 0 0 0 2px rgba(255,255,255,0.28); }
+    .ttab .x { opacity: .6; font-size: 17px; margin-left: 2px; padding: 0 3px; }
+    .ttab.add { color: #8bc0ff; font-weight: 700; padding: 8px 15px; min-height: 38px; }
     #termBox { flex: 1; min-height: 0; position: relative; overflow: hidden; }
     .termpane { position: absolute; inset: 0; padding: 6px 8px; display: none; }
     .termpane.active { display: block; }
     .termpane .xterm { height: 100%; }
-    #termKeys { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px; border-top: 1px solid #1c212b; flex: none; }
-    .tkey { flex: none; min-width: 46px; height: 40px; padding: 0 13px; border: none; border-radius: 9px; background: #1c212b; color: #e6e8ec; font-size: 15px; display: grid; place-items: center; }
-    .tkey.on { background: rgba(63,185,80,0.22); color: #3fb950; }
-    .ttab .x { margin-left: 2px; }
+    /* (colour dot + active underline handle the tab visuals now) */
+    #termKeys { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px; border-top: 1px solid var(--line); flex: none; }
+    .tkey { flex: none; min-width: 48px; height: 42px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--text); font-size: 15px; display: grid; place-items: center; }
+    .tkey:active { background: var(--surface-3); }
+    .tkey.on { background: rgba(70,194,90,0.22); color: var(--green); border-color: transparent; }
     /* Rename/colour tab sheet */
-    #termEditScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.45); display: none; }
+    #termEditScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.5); display: none; }
     #termEditScrim.show { display: block; }
-    #termEdit { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: #12161f; border-top: 1px solid #262c38;
-      border-radius: 16px 16px 0 0; padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); transform: translateY(115%); transition: transform .22s ease; }
+    #termEdit { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: var(--surface); border-top: 1px solid var(--line-2);
+      border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(115%); transition: transform .24s cubic-bezier(.32,.72,0,1); box-shadow: var(--shadow); }
     #termEdit.show { transform: translateY(0); }
-    #termEdit .tehead { font-weight: 700; margin-bottom: 10px; }
-    #teName { width: 100%; padding: 11px 12px; border-radius: 10px; background: #171b23; color: #e6e8ec; border: 1px solid #262c38; font: inherit; font-size: 16px; }
-    #teSwatches { display: flex; gap: 12px; margin: 14px 2px; }
-    .sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; }
-    .sw.sel { border-color: #fff; }
-    .sw.none { background: #2a303c; position: relative; }
-    .sw.none::after { content: '∅'; color: #8b93a1; position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; }
-    #teSave { width: 100%; border: none; border-radius: 10px; padding: 13px; background: #2f6fed; color: #fff; font-size: 16px; font-weight: 700; }
+    #termEdit::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 999px; background: var(--line-2); margin: 6px auto 12px; }
+    #termEdit .tehead { font-weight: 700; font-size: 16px; margin-bottom: 10px; }
+    #teName { width: 100%; padding: 12px 13px; border-radius: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 16px; }
+    #teSwatches { display: flex; gap: 14px; margin: 16px 2px; }
+    .sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; }
+    .sw.sel { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.15); }
+    .sw.none { background: var(--surface-3); position: relative; }
+    .sw.none::after { content: '∅'; color: var(--dim); position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; }
+    #teSave { width: 100%; border: none; border-radius: 12px; padding: 14px; background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; font-size: 16px; font-weight: 700; }
     /* Install helper sheet */
-    #installScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.45); display: none; }
+    #installScrim { position: absolute; inset: 0; z-index: 44; background: rgba(0,0,0,.5); display: none; }
     #installScrim.show { display: block; }
-    #installSheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: #12161f; border-top: 1px solid #262c38;
-      border-radius: 16px 16px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(115%); transition: transform .22s ease; }
+    #installSheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 45; background: var(--surface); border-top: 1px solid var(--line-2);
+      border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(115%); transition: transform .24s cubic-bezier(.32,.72,0,1); box-shadow: var(--shadow); }
     #installSheet.show { transform: translateY(0); }
+    #installSheet::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 999px; background: var(--line-2); margin: 6px auto 12px; }
     #installSheet .tehead { font-weight: 700; font-size: 16px; margin-bottom: 12px; }
     #installSteps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-    #installSteps .istep { display: flex; gap: 11px; align-items: flex-start; font-size: 15px; line-height: 1.4; }
-    #installSteps .in { flex: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(47,111,237,0.2); color: #6ea8ff; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
-    #installClose { width: 100%; border: none; border-radius: 10px; padding: 13px; background: #2f6fed; color: #fff; font-size: 16px; font-weight: 700; }
+    #installSteps .istep { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.45; }
+    #installSteps .in { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+    #installClose { width: 100%; border: none; border-radius: 12px; padding: 14px; background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; font-size: 16px; font-weight: 700; }
+    /* Pairing screen — type/paste the token or scan the QR */
+    #pairScrim { position: absolute; inset: 0; z-index: 60; background: rgba(4,6,10,.82); display: none; }
+    #pairScrim.show { display: block; }
+    #pair { position: absolute; z-index: 61; left: 50%; top: 50%; transform: translate(-50%,-50%);
+      width: min(430px, 92vw); max-height: 92dvh; overflow-y: auto; background: var(--surface); border: 1px solid var(--line-2);
+      border-radius: var(--r-lg); padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); display: none; flex-direction: column; gap: 11px; box-shadow: var(--shadow); }
+    #pair.show { display: flex; }
+    #pair .phead { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    #pair .phead .x { margin-left: auto; background: none; border: none; color: var(--dim); font-size: 24px; line-height: 1; padding: 0 4px; }
+    #pair .psub { color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+    #pairInput { width: 100%; padding: 13px; border-radius: 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 16px; }
+    #pairErr { color: var(--red); font-size: 12.5px; min-height: 15px; }
+    #pair .pbtn { width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; background: var(--surface-3); color: var(--text); display: flex; align-items: center; justify-content: center; gap: 8px; }
+    #pair .pbtn.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; }
+    #pair .por { text-align: center; color: var(--faint); font-size: 11px; letter-spacing: .08em; }
+    #pairScanWrap { display: none; flex-direction: column; gap: 8px; }
+    #pairScanWrap.show { display: flex; }
+    #pairVideo { width: 100%; border-radius: 14px; background: #000; aspect-ratio: 1 / 1; object-fit: cover; }
+
+    /* --- Git tab --- */
+    #gitScroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+    .gsec { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--line-2); border-radius: var(--r); padding: 13px 14px; display: flex; flex-direction: column; gap: 10px; }
+    .gsh { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; }
+    .gsh > span { flex: 1; }
+    .glink { background: none; border: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; padding: 2px 4px; }
+    .glink:disabled { color: var(--faint); }
+    .ginline { display: flex; gap: 8px; }
+    .ginput, .gselect { padding: 11px 12px; border-radius: 10px; background: var(--bg); color: var(--text); border: 1px solid var(--line); font: inherit; font-size: 15px; width: 100%; }
+    .ginline .ginput { flex: 1; min-width: 0; }
+    .ginline .gselect { flex: 1; min-width: 0; }
+    .gbtn { border: none; border-radius: 10px; padding: 11px 14px; font-size: 14.5px; font-weight: 700; background: var(--surface-3); color: var(--text); white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .gbtn.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; }
+    .gbtn.green { background: linear-gradient(180deg, var(--green), #35a548); color: #fff; }
+    .gbtn:disabled { opacity: .5; }
+    .grow2 { display: flex; gap: 8px; }
+    .grow2 .gbtn { flex: 1; }
+    .gempty { color: var(--dim); font-size: 13.5px; line-height: 1.55; padding: 4px 2px; }
+    .gbranch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .gbchip { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 11px; font-size: 13px; font-weight: 700; direction: ltr; }
+    .gab { color: var(--dim); font-size: 13px; font-weight: 600; direction: ltr; }
+    .gclean { color: var(--green); font-size: 12.5px; font-weight: 600; }
+    .gfiles { display: flex; flex-direction: column; gap: 1px; max-height: 32vh; overflow-y: auto; margin: 2px 0; }
+    .gfrow { display: flex; align-items: center; gap: 9px; padding: 5px 2px; font-size: 13px; }
+    .gfx { width: 18px; text-align: center; font-weight: 800; font-size: 12px; flex: none; direction: ltr; }
+    .gfx.M { color: var(--amber); } .gfx.A { color: var(--green); } .gfx.D { color: var(--red); } .gfx.U { color: var(--red); } .gfx.Q { color: var(--dim); }
+    .gfp { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); direction: ltr; text-align: left; }
+    .gcommit { display: flex; gap: 8px; }
+    .gactions { display: flex; gap: 8px; }
+    .gactions .gbtn { flex: 1; }
+    .gconflict { background: rgba(236,91,96,.12); border: 1px solid rgba(236,91,96,.42); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 9px; font-size: 13px; color: var(--text); line-height: 1.5; }
+    .gconflict b { color: var(--red); }
+    .grepolist { display: flex; flex-direction: column; gap: 5px; max-height: 44vh; overflow-y: auto; }
+    .grepo { display: flex; align-items: center; gap: 9px; padding: 10px; border-radius: 10px; background: var(--surface-3); border: 1px solid var(--line); text-align: left; }
+    .grepo:active { background: var(--surface-2); }
+    .grepo .grn { flex: 1; min-width: 0; }
+    .grepo .grn b { display: block; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+    .grepo .grn small { display: block; color: var(--dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+    .grepo .grv { font-size: 10px; color: var(--faint); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 7px; flex: none; text-transform: uppercase; letter-spacing: .04em; }
+    .gflash { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .gflash > span { flex: 1; min-width: 0; }
+    .gtog { display: flex; gap: 6px; }
+    .gtog button { flex: 1; padding: 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--dim); font: inherit; font-size: 13.5px; font-weight: 600; }
+    .gtog button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
@@ -245,21 +343,60 @@
     </div>
   </div>
 
+  <div id="viewGit" class="view">
+    <div id="gitScroll">
+      <div id="gFlash"></div>
+
+      <section class="gsec">
+        <div class="gsh"><span>Current repo</span><button class="glink" id="gRefresh">Refresh</button></div>
+        <div id="gStatusBody"><div class="gempty">Open a project from the Projects tab to see its Git status here.</div></div>
+      </section>
+
+      <section class="gsec">
+        <div class="gsh"><span>Clone a repository</span><button class="glink" id="gLoadRepos">Load my repos</button></div>
+        <div class="ginline">
+          <input class="ginput" id="gCloneRef" placeholder="owner/repo or GitHub URL…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+          <button class="gbtn primary" id="gCloneBtn">Clone</button>
+        </div>
+        <input class="ginput" id="gRepoSearch" placeholder="Search your repositories…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" hidden />
+        <div id="gRepoList" class="grepolist"></div>
+      </section>
+
+      <section class="gsec">
+        <div class="gsh"><span>New repository</span></div>
+        <input class="ginput" id="gNewName" placeholder="Repository name…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        <div class="ginline">
+          <select class="gselect" id="gNewOwner"></select>
+        </div>
+        <div class="gtog" id="gNewVis">
+          <button data-vis="private" class="on">🔒 Private</button>
+          <button data-vis="public">🌐 Public</button>
+        </div>
+        <input class="ginput" id="gNewDesc" placeholder="Description (optional)…" autocomplete="off" />
+        <button class="gbtn primary" id="gNewBtn">Create &amp; clone</button>
+      </section>
+    </div>
+  </div>
+
   <nav id="tabbar">
     <button data-view="projects" id="navProjects"><span class="ni">📁</span><span>Projects</span></button>
     <button data-view="chat" id="navChat"><span class="ni">💬</span><span>Chat</span></button>
     <button data-view="terminal" id="navTerminal"><span class="ni">⌨</span><span>Terminal</span></button>
     <button data-view="files" id="navFiles"><span class="ni">📄</span><span>Files</span></button>
+    <button data-view="git" id="navGit"><span class="ni">🔀</span><span>Git</span></button>
   </nav>
 
   <div id="menuScrim"></div>
   <div id="menu">
     <button class="mitem" id="miHistory"><span class="mi">🕘</span><span class="ml">Conversation history</span></button>
+    <button class="mitem" id="miGit"><span class="mi">🔀</span><span class="ml">Git (this project)</span></button>
     <button class="mitem" id="new"><span class="mi">✍️</span><span class="ml">New chat</span></button>
     <button class="mitem" id="auto"><span class="mi">⚡</span><span class="ml">Auto-approve tools</span><span class="mstate" id="autoState">Off</span></button>
     <button class="mitem" id="miNotify"><span class="mi">🔔</span><span class="ml">Notifications</span><span class="mstate" id="notifyState">Off</span></button>
     <button class="mitem" id="miTest"><span class="mi">🧪</span><span class="ml">Test notification</span></button>
     <button class="mitem" id="miInstall"><span class="mi">⬇️</span><span class="ml">Install app</span></button>
+    <button class="mitem" id="miPair"><span class="mi">🔑</span><span class="ml">Pairing token</span></button>
+    <button class="mitem" id="miReload"><span class="mi">🔄</span><span class="ml">Reload app (force update)</span><span class="mstate" id="buildState"></span></button>
     <button class="mitem danger" id="restart"><span class="mi">↻</span><span class="ml">Restart project</span></button>
   </div>
 
@@ -278,10 +415,53 @@
     <button id="teSave">Save</button>
   </div>
 
+  <div id="pairScrim"></div>
+  <div id="pair">
+    <div class="phead"><span>🔐 Pair with dev-dock</span><button class="x" id="pairClose" aria-label="Close">×</button></div>
+    <div class="psub">Enter the pairing token shown in the server terminal (or paste the full link). You can also scan its QR code.</div>
+    <input id="pairInput" placeholder="Paste token or link…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+    <div id="pairErr"></div>
+    <button id="pairConnect" class="pbtn primary">Connect</button>
+    <div class="por">— OR —</div>
+    <button id="pairScan" class="pbtn">📷 Scan QR code</button>
+    <div id="pairScanWrap">
+      <video id="pairVideo" playsinline muted></video>
+      <button id="pairScanStop" class="pbtn">Stop scanning</button>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <script>
     const WS_PORT = 51888;
+    const BUILD = 'ui-r7';   // bump when shipping a new UI build; shown in the ⋯ menu
+    // Pairing token: taken from the ?token=… link/QR on first open, then kept in
+    // localStorage so reloads stay paired. Scrubbed from the address bar so it
+    // isn't left in history or over someone's shoulder.
+    let TOKEN = (() => {
+      try {
+        const u = new URL(location.href);
+        const q = u.searchParams.get('token');
+        if (q) {
+          try { localStorage.setItem('devdock_token', q); } catch (e) {}
+          u.searchParams.delete('token');
+          history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+          return q;
+        }
+      } catch (e) {}
+      try { return localStorage.getItem('devdock_token') || ''; } catch (e) { return ''; }
+    })();
+    const withToken = (url) => TOKEN ? (url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN)) : url;
+    // Pull a bare token out of whatever the user pasted/scanned: a full pairing
+    // link (…/?token=XYZ), a "token=XYZ" fragment, or the raw token itself.
+    function parseToken(raw) {
+      const s = (raw || '').trim();
+      if (!s) return '';
+      let m = s.match(/[?&#]token=([^&\s]+)/i) || s.match(/^token=([^&\s]+)/i);
+      if (m) { try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; } }
+      if (/^https?:\/\//i.test(s)) return '';          // a link but no token in it
+      return s.replace(/\s+/g, '');                    // treat as the raw token
+    }
     const $ = (id) => document.getElementById(id);
     const log = $('log'), input = $('input'), sendBtn = $('send'), dot = $('dot');
     const titleEl = $('title'), statusEl = $('status');
@@ -298,16 +478,33 @@
       panel.classList.toggle('show', v === 'projects');
       termPanel.classList.toggle('show', v === 'terminal');
       viewFiles.classList.toggle('show', v === 'files');
+      viewGit.classList.toggle('show', v === 'git');
       $('navProjects').classList.toggle('on', v === 'projects');
       $('navChat').classList.toggle('on', v === 'chat');
       $('navTerminal').classList.toggle('on', v === 'terminal');
       $('navFiles').classList.toggle('on', v === 'files');
+      $('navGit').classList.toggle('on', v === 'git');
       if (v === 'chat') { setTitle(activeProject || 'dev-dock'); hback.style.display = 'none'; setTimeout(() => { log.scrollTop = log.scrollHeight; }, 30); }
       else if (v === 'terminal') { setTitle((activeProject ? activeProject + ' — ' : '') + 'Terminal'); hback.style.display = 'none'; setTimeout(fitTerminal, 60); }
       else if (v === 'files') { setTitle((activeProject ? activeProject + ' — ' : '') + 'Files'); hback.style.display = 'none'; }
+      else if (v === 'git') { setTitle((activeProject ? activeProject + ' — ' : '') + 'Git'); hback.style.display = 'none'; }
       else { setTitle(browseView === 'sessions' ? (activeProject || 'History') : 'Projects'); hback.style.display = browseView === 'sessions' ? '' : 'none'; }
     }
-    function openMenu() { refreshAuto(); refreshNotify(); refreshInstall(); menuScrim.classList.add('show'); menuEl.classList.add('show'); }
+    function openMenu() { refreshAuto(); refreshNotify(); refreshInstall(); const b = $('buildState'); if (b) b.textContent = BUILD; menuScrim.classList.add('show'); menuEl.classList.add('show'); }
+    // One-tap force update: check for a newer service worker, then hard-reload.
+    // The escape hatch when a phone is stuck on a cached build.
+    function forceReload() {
+      closeMenu(); toast('Updating…');
+      const done = () => { try { location.reload(); } catch (e) {} };
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistration) {
+          navigator.serviceWorker.getRegistration()
+            .then((r) => (r && r.update ? r.update().catch(() => {}) : Promise.resolve()))
+            .finally(done);
+          setTimeout(done, 1500);   // fallback if update() hangs
+        } else done();
+      } catch (e) { done(); }
+    }
     function closeMenu() { menuScrim.classList.remove('show'); menuEl.classList.remove('show'); }
     function refreshAuto() { autoState.textContent = autoApprove ? 'On' : 'Off'; $('auto').classList.toggle('on', autoApprove); }
 
@@ -327,9 +524,9 @@
         toast((isiOS() && !isStandalone()) ? 'On iPhone: install to the Home Screen first, then enable notifications.' : 'This browser has no notifications.');
         return;
       }
-      if (Notification.permission === 'granted') { toast('Notifications are on ✓'); refreshNotify(); return; }
+      if (Notification.permission === 'granted') { subscribeToPush(); toast('Notifications are on ✓'); refreshNotify(); return; }
       if (Notification.permission === 'denied') { toast('Blocked — enable dev-dock in iPhone Settings ▸ Notifications.'); return; }
-      Notification.requestPermission().then((p) => { refreshNotify(); toast(p === 'granted' ? 'Notifications enabled ✓' : 'Not enabled.'); });
+      Notification.requestPermission().then((p) => { refreshNotify(); if (p === 'granted') subscribeToPush(); toast(p === 'granted' ? 'Notifications enabled ✓' : 'Not enabled.'); });
     }
     function refreshInstall() { $('miInstall').style.display = isStandalone() ? 'none' : ''; }
     function doInstall() {
@@ -362,8 +559,13 @@
     let xtermLoading = null, terms = [], activeTermId = null, ctrlArmed = false; // terms: {id, term, fitAddon, pane, title}
     let filesPath = '', fileEntries = [], fileRoot = '', pendingRoot = false, curFile = '', hljsLoading = null, sessionCost = 0;
     let serverTerms = [], editTermId = null, editColor = ''; // shared terminal list from the app
+    const mediaImgCache = new Map(); // src -> <img>; reuse loaded nodes so images don't flicker on re-render
     const TCOLORS = ['', '#3fb950', '#2f6fed', '#e5484d', '#e2a53b', '#a371f7', '#f778ba'];
     const dash = $('dash'), fcrumb = $('fcrumb'), flist = $('flist'), viewFiles = $('viewFiles'), fvcode = $('fvcode'), fvtitle = $('fvtitle'), fvbody = $('fvbody');
+    const viewGit = $('viewGit');
+    // Git tab state.
+    let gitStat = null, gitBusyOp = null, gitRepos = [], gitReposLoaded = false, gitRepoErr = null;
+    let gitOwners = [], gitOwnersLoaded = false, gitNewVis = 'private';
 
     // Pull image file paths out of a message so we can show the picture and
     // hide the "Attached image(s) — view them…" boilerplate + raw path.
@@ -432,7 +634,7 @@
           if (n > 0) { toast('Test notification in ' + n + 's… leave the app'); return; }
           clearInterval(testTimer);
           try {
-            new Notification('dev-dock', {
+            showLocalNotification('dev-dock', {
               body: document.visibilityState === 'visible'
                 ? "You're still in the app — real alerts show when you're away."
                 : 'Notifications work ✓ — you\'ll get these when a task needs you.',
@@ -442,39 +644,135 @@
           } catch (e) { toast('Could not show it: ' + (e && e.message || e)); }
         }, 1000);
       };
-      if (Notification.permission === 'granted') schedule();
+      if (Notification.permission === 'granted') { subscribeToPush(); schedule(); }
       else if (Notification.permission === 'denied') toast('Notifications are blocked — enable dev-dock in iPhone Settings ▸ Notifications.');
-      else Notification.requestPermission().then((p) => { p === 'granted' ? schedule() : toast('Allow notifications to test them.'); });
+      else Notification.requestPermission().then((p) => { if (p === 'granted') { subscribeToPush(); schedule(); } else toast('Allow notifications to test them.'); });
     }
-    function notify(title, body) {
+    // Base64URL (VAPID public key) -> Uint8Array for pushManager.subscribe.
+    function urlB64ToUint8Array(base64) {
+      const pad = '='.repeat((4 - base64.length % 4) % 4);
+      const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(b64); const out = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    }
+    // Register this device for server-sent Web Push, so finish/approval alerts
+    // arrive even when the PWA is fully closed (no live socket needed).
+    async function subscribeToPush() {
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const res = await fetch(withToken('/vapidPublicKey'));
+          const j = await res.json();
+          if (!j || !j.key) return;
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(j.key) });
+        }
+        await fetch(withToken('/subscribe'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+      } catch (e) { /* push just won't be available on this device */ }
+    }
+    // Show an OS banner reliably: installed PWAs (esp. Android) require the
+    // service worker's showNotification, not the `new Notification` constructor.
+    async function showLocalNotification(title, opts) {
+      try {
+        if ('serviceWorker' in navigator) { const reg = await navigator.serviceWorker.ready; if (reg && reg.showNotification) { await reg.showNotification(title, opts); return; } }
+      } catch (e) {}
+      try { new Notification(title, opts); } catch (e) {}
+    }
+    // Local fallback banner (the server also sends Web Push with matching tags,
+    // so the two collapse into one notification rather than stacking).
+    function notify(title, body, tag) {
       try {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
         if (document.visibilityState === 'visible') return; // OS banner only when away
-        new Notification(title, { body, icon: '/icon-192.png', tag: 'dev-dock', renotify: true });
+        showLocalNotification(title, { body, icon: '/icon-192.png', tag: tag || 'dev-dock', renotify: true });
       } catch (e) {}
     }
-    function alertUser(title, body) { beep(); toast(title); notify(title, body); }
+    function alertUser(title, body, tag) { beep(); toast(title); notify(title, body, tag); }
     function handleNotifications(chat, perm) {
       const streamingNow = chat.some((x) => x.streaming);
       const permId = perm ? perm.id : null;
-      if (permId && permId !== lastPermId) alertUser('Approval needed', perm.title || 'Claude wants to run a tool');
+      if (permId && permId !== lastPermId) alertUser('Approval needed', perm.title || 'Claude wants to run a tool', 'dd-perm');
       lastPermId = permId;
-      if (wasStreaming && !streamingNow && !perm) alertUser('✓ Claude finished', 'Your task is done.');
+      if (wasStreaming && !streamingNow && !perm) alertUser('✓ Claude finished', 'Your task is done.', 'dd-turn');
       wasStreaming = streamingNow;
     }
 
+    let reconnectTimer = null, lastRecvAt = 0;   // lastRecvAt: liveness clock for zombie-socket detection
+    function clearReconnect() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
+    function scheduleReconnect() { clearReconnect(); reconnectTimer = setTimeout(connect, 2000); }
+    // Fully detach a socket so a late onclose/onerror can't schedule another
+    // reconnect — two live sockets both write terminal bytes into the SAME
+    // xterm, which is exactly what made every keystroke appear twice.
+    function teardown(sock) {
+      if (!sock) return;
+      try { sock.onopen = sock.onmessage = sock.onclose = sock.onerror = null; } catch (e) {}
+      try { sock.close(); } catch (e) {}
+    }
     function connect() {
+      if (!TOKEN) { openPair(); return; }   // no token yet — show the pairing screen
+      // Never open a second socket (see teardown above) — the guard that kills
+      // the doubled-terminal bug and the duplicate-connection churn.
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+      clearReconnect();
       // Over HTTPS (e.g. `tailscale serve`) the socket must be same-origin wss
       // at /ws (mixed content blocks ws:// from https://); over plain HTTP use
       // the direct bridge port as before.
-      const wsUrl = location.protocol === 'https:'
+      const wsBase = location.protocol === 'https:'
         ? ('wss://' + location.host + '/ws')
         : ('ws://' + location.hostname + ':' + WS_PORT);
-      ws = new WebSocket(wsUrl);
-      ws.onopen = () => { connected = true; send({ type: 'listProjects' }); paint(); };
-      ws.onclose = () => { connected = false; paint(); setTimeout(connect, 2000); };
-      ws.onerror = () => { try { ws.close(); } catch (e) {} };
-      ws.onmessage = (ev) => {
+      const sock = new WebSocket(withToken(wsBase));
+      ws = sock;
+      sock.onopen = () => { connected = true; everConnected = true; connectFails = 0; closePair(); send({ type: 'listProjects' }); paint(); };
+      sock.onclose = (ev) => {
+        if (ws !== sock) return;             // a stale socket we already replaced
+        connected = false; ws = null; paint();
+        if (ev && ev.code === 1008) { openPair('This device was unpaired. Enter the new pairing token.'); return; }
+        connectFails++;
+        if (!TOKEN) { openPair(); return; }
+        if (connectFails === 3) openPair('Trouble connecting — check the token, or the server may be offline.');
+        scheduleReconnect();
+      };
+      sock.onerror = () => { try { sock.close(); } catch (e) {} };
+      sock.onmessage = onWsMessage;
+    }
+    // Returning to the app after it was backgrounded: the server keeps the turn
+    // running independently, so we only need to make sure THIS device is really
+    // connected and then pull a fresh snapshot.
+    //
+    // The trap on iOS: a socket backgrounded by the OS often comes back as a
+    // ZOMBIE — readyState still says OPEN, but it never delivers another byte and
+    // our send() goes nowhere. The old code then either sent `resync` into that
+    // dead socket (nothing came back) or hit connect()'s "already OPEN" guard and
+    // refused to open a fresh one — so the chat looked frozen/"stopped" even
+    // though the turn was still streaming on the server. Fix: ping via resync and,
+    // if the server hasn't answered within a beat, treat the socket as dead, tear
+    // it down and reconnect. Also clear connectFails so returning to the app can
+    // never pop the pairing screen.
+    let livenessTimer = null, pingAt = 0;
+    function ensureConnected() {
+      if (!TOKEN) return;
+      connectFails = 0;
+      if (!ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+        clearReconnect(); connect(); return;
+      }
+      if (ws.readyState === WebSocket.CONNECTING) return;   // let the in-flight connect finish
+      // Socket claims OPEN — verify it actually still talks to the server.
+      const sock = ws;
+      pingAt = Date.now();
+      send({ type: 'resync' });
+      clearTimeout(livenessTimer);
+      livenessTimer = setTimeout(() => {
+        if (ws === sock && lastRecvAt < pingAt) {          // no reply since the ping → zombie socket
+          teardown(sock); if (ws === sock) ws = null;
+          clearReconnect(); connect();
+        }
+      }, 2000);
+    }
+    function onWsMessage(ev) {
+        lastRecvAt = Date.now();   // any server byte proves the socket is alive (see ensureConnected)
         let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
         if (m.type === 'chatSnapshot') {
           if (m.projectName) activeProject = m.projectName;
@@ -511,8 +809,29 @@
         } else if (m.type === 'termList') {
           serverTerms = m.terminals || [];
           if (view === 'terminal') reconcileTerms();
+        } else if (m.type === 'gitBusy') {
+          gitBusyOp = m.busy ? m.op : null;
+          if (view === 'git') { if (m.op === 'repos') renderGitRepos(); else renderGitStatus(); }
+        } else if (m.type === 'gitStatusResult') {
+          gitStat = m; if (view === 'git') renderGitStatus();
+        } else if (m.type === 'gitRepoList') {
+          gitBusyOp = null; gitRepos = m.repos || []; gitReposLoaded = true; gitRepoErr = m.ok ? null : m.error;
+          if (view === 'git') renderGitRepos();
+        } else if (m.type === 'gitOwnerList') {
+          gitOwners = m.owners || []; gitOwnersLoaded = true; if (view === 'git') fillOwners();
+        } else if (m.type === 'gitCloneResult') {
+          gitBusyOp = null; onGitCloneResult(m); if (view === 'git') renderGitRepos();
+        } else if (m.type === 'gitCreateResult') {
+          gitBusyOp = null; onGitCreateResult(m);
+        } else if (m.type === 'gitOpResult') {
+          gitBusyOp = null; onGitOpResult(m);
+        } else if (m.type === 'gitOpened') {
+          if (m.ok) { activeProjectId = m.projectId; $('gFlash').innerHTML = ''; toast('Opened ✓'); setView('chat'); }
+          else toast('⚠ ' + (m.error || 'Could not open'));
+        } else if (m.type === 'gitResolveStarted') {
+          if (m.projectId) activeProjectId = m.projectId;
+          toast('Claude is resolving the conflicts…'); setView('chat');
         }
-      };
     }
     function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
 
@@ -544,9 +863,16 @@
         el.className = 'msg ' + msg.role + (msg.isError ? ' error' : '');
         const parsed = splitImages(msg.text);
         for (const p of parsed.imgs) {
-          const im = document.createElement('img');
-          im.className = 'attach';
-          im.src = '/media?p=' + encodeURIComponent(p);
+          const src = withToken('/media?p=' + encodeURIComponent(p));
+          // Reuse the already-loaded <img> node across re-renders. Recreating it
+          // every ~60ms streaming tick made the picture flash in and out.
+          let im = mediaImgCache.get(src);
+          if (!im) {
+            im = document.createElement('img');
+            im.className = 'attach'; im.decoding = 'async'; im.loading = 'eager'; im.src = src;
+            mediaImgCache.set(src, im);
+            if (mediaImgCache.size > 60) mediaImgCache.delete(mediaImgCache.keys().next().value);
+          }
           el.appendChild(im);
         }
         if (parsed.text) {
@@ -556,18 +882,43 @@
           el.appendChild(cap);
         } else if (!parsed.imgs.length) {
           if (msg.streaming) {
-            // In-chat working indicator: a pulsing dot + the live status verb/tokens.
+            // In-chat working indicator: a pulsing dot + the live status verb/tokens
+            // + a running elapsed timer so you see how long the prompt is taking.
             el.classList.add('working');
             el.innerHTML = '<span class="wdot"></span><span class="wtext"></span>';
-            el.querySelector('.wtext').textContent = status || 'Working…';
+            const elapsed = msg.time ? ' · ' + fmtDuration(Date.now() - msg.time) : '';
+            el.querySelector('.wtext').textContent = (status || 'Working…') + elapsed;
           } else { el.textContent = ''; }
         }
-        log.appendChild(el);
+        // A history entry with no text/images/tools would render as an empty pill;
+        // keep such a bubble only when it carries the turn's duration (the per-prompt
+        // time the user wants to see) — otherwise skip it so the log stays clean.
+        const hasBody = !!parsed.text || parsed.imgs.length > 0 || msg.streaming;
+        const showBubble = hasBody || (msg.role === 'assistant' && msg.durationMs != null);
+        if (showBubble) {
+          // Time line: clock time + how long the prompt took. A finished assistant
+          // reply shows its total duration; a still-streaming one shows live elapsed;
+          // skip the bare working placeholder that has nothing in it yet.
+          if (msg.time && !el.classList.contains('working')) {
+            const tm = document.createElement('div');
+            tm.className = 'mtime';
+            let label = fmtClock(msg.time);
+            if (msg.role === 'assistant') {
+              if (msg.durationMs != null) label += ' · ⏱ ' + fmtDuration(msg.durationMs);
+              else if (msg.streaming) label += ' · ⏱ ' + fmtDuration(Date.now() - msg.time);
+            }
+            tm.textContent = label;
+            el.appendChild(tm);
+          }
+          log.appendChild(el);
+        }
         for (const t of (msg.tools || [])) {
           const te = document.createElement('div');
           te.className = 'tool';
           te.innerHTML = '<span class="tdot"></span>';
           te.appendChild(document.createTextNode(t));
+          // Show when the edit/command ran (the turn's timestamp).
+          if (msg.time) { const tt = document.createElement('span'); tt.className = 'ttime'; tt.textContent = fmtClock(msg.time); te.appendChild(tt); }
           log.appendChild(te);
         }
       }
@@ -576,6 +927,21 @@
     function paint() { render(lastChat, lastStatus, permission); }
 
     // --- Project / conversation browser ---
+    // Local clock time (HH:MM) for a message/tool timestamp. `ms` is epoch millis.
+    function fmtClock(ms) {
+      if (!ms) return '';
+      try { return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+      catch (e) { const d = new Date(ms); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }
+    }
+    // Compact turn duration: "1m 04s" / "12s" / "0.6s".
+    function fmtDuration(ms) {
+      if (ms == null) return '';
+      if (ms < 1000) return Math.max(0, Math.round(ms)) + 'ms';
+      const s = Math.round(ms / 1000);
+      if (s < 60) return s + 's';
+      const m = Math.floor(s / 60), r = s % 60;
+      return m + 'm ' + String(r).padStart(2, '0') + 's';
+    }
     function relTime(sec) {
       if (!sec) return '';
       const d = Date.now() / 1000 - sec;
@@ -595,6 +961,9 @@
       send({ type: 'openProject', projectId: p.id });
       renderBrowse(); setView('projects');
     }
+    // Jump straight to Git for a specific project (from its row, without opening
+    // its chat) — makes activeProjectId that repo so status/commit/pull/push target it.
+    function openGitFor(p) { activeProject = p.name || (p.path || '').split('/').pop(); activeProjectId = p.id; openGit(); }
     function resume(s) { send({ type: 'resumeSession', sessionRef: s.id }); setView('chat'); }
     function newChat() { send({ type: 'chatNew' }); closeMenu(); setView('chat'); }
     function toggleAuto() { ensureNotify(); unlockAudio(); autoApprove = !autoApprove; refreshAuto(); send({ type: 'setAutoApprove', autoApprove }); }
@@ -619,11 +988,12 @@
     function projectRow(p) {
       const el = document.createElement('div');
       el.className = 'brow';
-      el.innerHTML = '<span class="st"></span><span class="ic">📁</span><div class="bbody"><div class="rt"></div><div class="rs"></div></div><span class="cnt"></span>';
+      el.innerHTML = '<span class="st"></span><span class="ic">📁</span><div class="bbody"><div class="rt"></div><div class="rs"></div></div><button class="gitbtn" title="Git" aria-label="Git">🔀</button><span class="cnt"></span>';
       if (p.id === activeProjectId) el.querySelector('.st').classList.add('on');
       el.querySelector('.rt').textContent = p.name || p.path;
       el.querySelector('.rs').textContent = [p.branch, relTime(p.modified)].filter(Boolean).join(' · ');
       el.querySelector('.cnt').textContent = p.sessionCount || 0;
+      el.querySelector('.gitbtn').addEventListener('click', (e) => { e.stopPropagation(); openGitFor(p); });
       el.addEventListener('click', () => pickProject(p));
       return el;
     }
@@ -708,7 +1078,7 @@
       const paths = [];
       for (const a of attachments) {
         try {
-          const res = await fetch('/upload', { method: 'POST', headers: { 'Content-Type': a.blob.type || 'image/jpeg' }, body: a.blob });
+          const res = await fetch(withToken('/upload'), { method: 'POST', headers: { 'Content-Type': a.blob.type || 'image/jpeg' }, body: a.blob });
           const j = await res.json();
           if (j && j.path) paths.push(j.path);
         } catch (e) { /* skip a failed upload */ }
@@ -746,16 +1116,20 @@
     function loadXterm() {
       if (window.Terminal && window.FitAddon) return Promise.resolve();
       if (xtermLoading) return xtermLoading;
+      // Vendored locally (served by dev-dock itself) — NOT from a CDN — so the
+      // terminal works over the same LAN/Tailscale link that loads the app, with
+      // no public-internet dependency. This is what made the terminal fail on a
+      // phone that can reach the server but not cdn.jsdelivr.net.
       xtermLoading = new Promise((resolve, reject) => {
         const css = document.createElement('link');
         css.rel = 'stylesheet';
-        css.href = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css';
+        css.href = '/xterm.min.css';
         document.head.appendChild(css);
         const s1 = document.createElement('script');
-        s1.src = 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js';
+        s1.src = '/xterm.min.js';
         s1.onload = () => {
           const s2 = document.createElement('script');
-          s2.src = 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js';
+          s2.src = '/addon-fit.min.js';
           s2.onload = () => resolve();
           s2.onerror = reject;
           document.head.appendChild(s2);
@@ -770,18 +1144,17 @@
       const t = activeTerm(); if (!t) return;
       try { t.fitAddon.fit(); send({ type: 'termResize', termId: t.id, cols: t.term.cols, rows: t.term.rows }); } catch (e) {}
     }
-    function paintTabColor(el, color, active) {
-      if (color && active) { el.style.background = color; el.style.color = '#0b0e13'; }
-      else { el.style.background = ''; el.style.color = ''; }
-    }
     function renderTabs() {
       const box = $('termTabs'); box.innerHTML = '';
       terms.forEach((t) => {
         const el = document.createElement('div');
         const active = t.id === activeTermId;
         el.className = 'ttab' + (active ? ' active' : '');
-        const label = document.createElement('span'); label.textContent = t.title || 'sh'; el.appendChild(label);
-        paintTabColor(el, t.color, active);
+        // Colour dot: always shows the tab's colour, active or not.
+        const cdot = document.createElement('span'); cdot.className = 'tdotc';
+        if (t.color) cdot.style.background = t.color;
+        el.appendChild(cdot);
+        const label = document.createElement('span'); label.className = 'tlabel'; label.textContent = t.title || 'sh'; el.appendChild(label);
         const x = document.createElement('span'); x.className = 'x'; x.textContent = '×';
         x.addEventListener('click', (e) => { e.stopPropagation(); closeTerm(t.id); });
         el.appendChild(x);
@@ -804,6 +1177,11 @@
       const pane = document.createElement('div'); pane.className = 'termpane'; termBox.appendChild(pane);
       const t = new Terminal({ fontSize: 13, cursorBlink: true, theme: { background: '#0b0e13', foreground: '#e6e8ec' } });
       const fit = new FitAddon.FitAddon(); t.loadAddon(fit); t.open(pane);
+      // Mobile: the on-screen keyboard only opens if the hidden xterm textarea is
+      // focused *inside* a real tap gesture (programmatic focus in a timeout does
+      // not count). Capture-phase so it runs even if xterm swallows the click.
+      const focusTerm = () => { try { (t.textarea || t).focus(); } catch (e) {} };
+      pane.addEventListener('click', focusTerm, true);
       const entry = { id, term: t, fitAddon: fit, pane, title: title || ('sh ' + (terms.length + 1)), color: color || '' };
       terms.push(entry);
       t.onData((d) => {
@@ -956,12 +1334,14 @@
     function loadHljs() {
       if (window.hljs) return Promise.resolve();
       if (hljsLoading) return hljsLoading;
+      // Vendored locally (see loadXterm) so file syntax-highlighting works with
+      // no public-internet dependency.
       hljsLoading = new Promise((resolve, reject) => {
         const css = document.createElement('link'); css.rel = 'stylesheet';
-        css.href = 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css';
+        css.href = '/hljs-dark.min.css';
         document.head.appendChild(css);
         const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js';
+        s.src = '/highlight.min.js';
         s.onload = () => resolve(); s.onerror = reject; document.head.appendChild(s);
       });
       return hljsLoading;
@@ -1006,20 +1386,232 @@
       for (const it of items) { if (it.type && it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) imgs.push(f); } }
       if (imgs.length) { e.preventDefault(); addFiles(imgs); }
     });
+    // --- Git tab -------------------------------------------------------------
+    const gEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const firstLine = (s) => String(s || '').split('\n').find((l) => l.trim()) || '';
+    function openGit() {
+      setView('git');
+      requestGitStatus();
+      if (!gitOwnersLoaded) send({ type: 'gitListOwners' });
+      if (!gitReposLoaded && gitBusyOp !== 'repos') { gitBusyOp = 'repos'; send({ type: 'gitListRepos' }); }
+      renderGit();
+    }
+    function requestGitStatus() { gitStat = null; send({ type: 'gitStatus', projectId: activeProjectId || undefined }); if (view === 'git') renderGitStatus(); }
+    function renderGit() { renderGitStatus(); fillOwners(); renderGitRepos(); }
+
+    function renderGitStatus() {
+      const b = $('gStatusBody'); if (!b) return;
+      const busy = gitBusyOp === 'pull' || gitBusyOp === 'push' || gitBusyOp === 'commit';
+      const s = gitStat;
+      if (!s) { b.innerHTML = '<div class="gempty">Loading…</div>'; return; }
+      if (!s.isRepo) { b.innerHTML = '<div class="gempty">' + (activeProject ? gEsc(activeProject) + ' is' : 'This folder is') + ' not a Git repository. Open a repo from the Projects tab, or clone one below.</div>'; return; }
+      const p = [];
+      const ab = []; if (s.ahead) ab.push('↑' + s.ahead); if (s.behind) ab.push('↓' + s.behind);
+      p.push('<div class="gbranch"><span class="gbchip">⑂ ' + gEsc(s.branch || '—') + '</span>'
+        + (ab.length ? '<span class="gab">' + ab.join(' ') + '</span>' : '')
+        + (!s.hasRemote ? '<span class="gab">no remote</span>' : '')
+        + (s.clean ? '<span class="gclean">✓ clean</span>' : '') + '</div>');
+      if (s.conflicted && s.conflicted.length) {
+        p.push('<div class="gconflict"><div><b>⚠ Merge conflicts</b> in ' + s.conflicted.length + ' file' + (s.conflicted.length > 1 ? 's' : '')
+          + '. Claude can resolve them — it edits &amp; stages the files, then stops so you review before committing.</div>'
+          + '<button class="gbtn green" data-gact="resolve"' + (busy ? ' disabled' : '') + '>🤖 Let Claude resolve</button></div>');
+      }
+      if (s.files && s.files.length) {
+        const rows = s.files.slice(0, 200).map((f) => {
+          const xy = String(f.xy || '');
+          const letter = f.conflict ? 'U' : (xy.includes('?') ? '?' : (xy.charAt(0) || 'M'));
+          const cls = f.conflict ? 'U' : (letter === 'A' ? 'A' : letter === 'D' ? 'D' : letter === '?' ? 'Q' : 'M');
+          return '<div class="gfrow"><span class="gfx ' + cls + '">' + gEsc(letter) + '</span><span class="gfp">' + gEsc(f.path) + '</span></div>';
+        }).join('');
+        p.push('<div class="gfiles">' + rows + '</div>');
+      } else if (!(s.conflicted && s.conflicted.length)) {
+        p.push('<div class="gempty">Working tree clean — nothing to commit.</div>');
+      }
+      p.push('<div class="gcommit"><input class="ginput" id="gCommitMsg" placeholder="Commit message…" autocomplete="off" autocapitalize="off" spellcheck="false">'
+        + '<button class="gbtn" data-gact="commit"' + (busy ? ' disabled' : '') + '>' + (gitBusyOp === 'commit' ? '…' : 'Commit') + '</button></div>');
+      p.push('<div class="gactions"><button class="gbtn" data-gact="pull"' + (busy ? ' disabled' : '') + '>' + (gitBusyOp === 'pull' ? 'Pulling…' : '⇩ Pull')
+        + '</button><button class="gbtn primary" data-gact="push"' + (busy ? ' disabled' : '') + '>' + (gitBusyOp === 'push' ? 'Pushing…' : '⇧ Push') + '</button></div>');
+      b.innerHTML = p.join('');
+    }
+
+    function fillOwners() {
+      const sel = $('gNewOwner'); if (!sel) return;
+      if (!gitOwners.length) { sel.innerHTML = '<option value="">(your account)</option>'; return; }
+      const cur = sel.value;
+      sel.innerHTML = gitOwners.map((o) => '<option value="' + gEsc(o.type === 'user' ? '' : o.login) + '">' + gEsc(o.login) + (o.type === 'org' ? ' (org)' : '') + '</option>').join('');
+      if (cur) sel.value = cur;
+    }
+
+    function renderGitRepos() {
+      const list = $('gRepoList'), search = $('gRepoSearch'); if (!list) return;
+      if (gitBusyOp === 'repos') { list.innerHTML = '<div class="gempty">Loading your repositories…</div>'; if (search) search.hidden = true; return; }
+      if (!gitReposLoaded) { list.innerHTML = ''; if (search) search.hidden = true; return; }
+      if (gitRepoErr) { list.innerHTML = '<div class="gempty">⚠ ' + gEsc(gitRepoErr) + '</div>'; if (search) search.hidden = true; return; }
+      if (search) search.hidden = gitRepos.length < 6;
+      const q = ((search && search.value) || '').trim().toLowerCase();
+      const items = gitRepos.filter((r) => !q || r.nameWithOwner.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q)).slice(0, 60);
+      if (!items.length) { list.innerHTML = '<div class="gempty">' + (gitRepos.length ? 'No repositories match.' : 'No repositories found.') + '</div>'; return; }
+      list.innerHTML = items.map((r) => '<button class="grepo" data-clone="' + gEsc(r.nameWithOwner) + '"><span class="grn"><b>'
+        + gEsc(r.nameWithOwner) + '</b>' + (r.description ? '<small>' + gEsc(r.description) + '</small>' : '') + '</span><span class="grv">' + (r.private ? 'private' : 'public') + '</span></button>').join('');
+    }
+
+    function gitAct(act) {
+      const pid = activeProjectId || undefined;
+      if (act === 'refresh') return requestGitStatus();
+      if (act === 'pull') return send({ type: 'gitPull', projectId: pid });
+      if (act === 'push') return send({ type: 'gitPush', projectId: pid });
+      if (act === 'commit') {
+        const el = $('gCommitMsg'), msg = el ? el.value.trim() : '';
+        if (!msg) { toast('Enter a commit message'); if (el) el.focus(); return; }
+        return send({ type: 'gitCommit', projectId: pid, message: msg });
+      }
+      if (act === 'resolve') return send({ type: 'gitResolveConflicts', projectId: pid, conflicted: (gitStat && gitStat.conflicted) || [] });
+    }
+
+    function gitClone(ref) {
+      const r = (ref || '').trim(); if (!r) { toast('Enter owner/repo or a URL'); return; }
+      gitBusyOp = 'clone'; toast('Cloning ' + r + '…'); send({ type: 'gitClone', ref: r });
+    }
+    function gitCreate() {
+      const name = ($('gNewName').value || '').trim(); if (!name) { toast('Enter a repository name'); $('gNewName').focus(); return; }
+      const owner = $('gNewOwner').value || '';
+      gitBusyOp = 'create'; toast('Creating ' + name + '…');
+      send({ type: 'gitCreateRepo', name, owner, isPrivate: gitNewVis !== 'public', description: ($('gNewDesc').value || '').trim() });
+    }
+    function gitFlash(m, text) {
+      const f = $('gFlash'); if (!f) return;
+      const canOpen = m && (m.projectId || m.path);
+      f.innerHTML = '<div class="gflash"><span>' + gEsc(text) + '</span>' + (canOpen ? '<button class="gbtn primary" id="gOpenNew">Open</button>' : '') + '</div>';
+      const btn = $('gOpenNew');
+      if (btn) btn.onclick = () => send({ type: 'gitOpen', projectId: (m && m.projectId) || undefined, path: (m && m.path) || undefined });
+    }
+    function onGitCloneResult(m) {
+      if (m.ok) { toast('Cloned ' + (m.nameWithOwner || 'repo') + ' ✓'); gitFlash(m, 'Cloned ' + (m.nameWithOwner || '') + ' → ' + (m.path || '')); $('gCloneRef').value = ''; }
+      else { toast('⚠ ' + firstLine(m.error || 'Clone failed')); $('gFlash').innerHTML = '<div class="gconflict"><div>' + gEsc(m.error || 'Clone failed') + '</div></div>'; }
+    }
+    function onGitCreateResult(m) {
+      if (m.ok) { toast('Created ' + (m.nameWithOwner || '') + ' ✓'); gitFlash(m, 'Created ' + (m.nameWithOwner || '') + (m.path ? ' → ' + m.path : '')); $('gNewName').value = ''; $('gNewDesc').value = ''; }
+      else { toast('⚠ ' + firstLine(m.error || 'Create failed')); $('gFlash').innerHTML = '<div class="gconflict"><div>' + gEsc(m.error || 'Create failed') + '</div></div>'; }
+    }
+    function onGitOpResult(m) {
+      if (m.op === 'commit') { if (m.ok) { const el = $('gCommitMsg'); if (el) el.value = ''; toast('Committed ✓'); } else toast('⚠ ' + firstLine(m.error)); }
+      else if (m.op === 'pull') { if (m.ok) toast(firstLine(m.output) || 'Pulled ✓'); else if (m.conflict) toast('⚠ Conflicts — tap “Let Claude resolve”'); else toast('⚠ ' + firstLine(m.error)); }
+      else if (m.op === 'push') { if (m.ok) toast('Pushed ✓'); else toast('⚠ ' + firstLine(m.error)); }
+      else if (!m.ok) toast('⚠ ' + firstLine(m.error || 'Failed'));
+      requestGitStatus();
+    }
+
     // Bottom navigation (labeled screens)
     $('navProjects').addEventListener('click', showProjects);
     $('navChat').addEventListener('click', () => setView('chat'));
     $('navTerminal').addEventListener('click', () => { unlockAudio(); openTerminal(); });
     $('navFiles').addEventListener('click', openFiles);
+    $('navGit').addEventListener('click', openGit);
+    // Git tab wiring.
+    $('gRefresh').addEventListener('click', () => gitAct('refresh'));
+    $('gLoadRepos').addEventListener('click', () => { if (gitBusyOp === 'repos') return; gitBusyOp = 'repos'; gitReposLoaded = false; renderGitRepos(); send({ type: 'gitListRepos' }); });
+    $('gCloneBtn').addEventListener('click', () => gitClone($('gCloneRef').value));
+    $('gCloneRef').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gitClone($('gCloneRef').value); } });
+    $('gRepoSearch').addEventListener('input', renderGitRepos);
+    $('gRepoList').addEventListener('click', (e) => { const el = e.target.closest('[data-clone]'); if (el) gitClone(el.getAttribute('data-clone')); });
+    $('gStatusBody').addEventListener('click', (e) => { const el = e.target.closest('[data-gact]'); if (el) gitAct(el.getAttribute('data-gact')); });
+    $('gNewBtn').addEventListener('click', gitCreate);
+    $('gNewVis').addEventListener('click', (e) => {
+      const el = e.target.closest('[data-vis]'); if (!el) return;
+      gitNewVis = el.getAttribute('data-vis');
+      for (const b of $('gNewVis').querySelectorAll('button')) b.classList.toggle('on', b === el);
+    });
     $('fvback').addEventListener('click', () => viewFiles.classList.remove('file'));
     $('fvuse').addEventListener('click', useInChat);
     $('teSave').addEventListener('click', saveTermEdit);
     $('termEditScrim').addEventListener('click', closeTermEdit);
     // ⋯ menu
+    // --- Pairing: type/paste a token or scan the QR ------------------------
+    let connectFails = 0, everConnected = false;
+    const pairEl = $('pair'), pairScrimEl = $('pairScrim'), pairInput = $('pairInput'), pairErr = $('pairErr');
+    function openPair(msg) {
+      pairErr.textContent = msg || '';
+      if (!pairInput.value && TOKEN) pairInput.value = TOKEN;   // prefill the current (maybe stale) token
+      pairScrimEl.classList.add('show'); pairEl.classList.add('show');
+      setTimeout(() => { try { pairInput.focus(); } catch (e) {} }, 60);
+    }
+    function closePair() { stopScan(); pairScrimEl.classList.remove('show'); pairEl.classList.remove('show'); }
+    function applyToken(raw) {
+      const tok = parseToken(raw);
+      if (!tok) { pairErr.textContent = 'That doesn’t look like a token or a pairing link.'; return; }
+      TOKEN = tok;
+      try { localStorage.setItem('devdock_token', tok); } catch (e) {}
+      connectFails = 0; everConnected = false;
+      closePair();
+      teardown(ws); ws = null;
+      toast('Pairing…');
+      connect();
+    }
+    // Camera QR scanner — native BarcodeDetector when present, else vendored jsQR.
+    let scanStream = null, scanRAF = null, scanDetector = null;
+    function loadJsQR() {
+      if (window.jsQR) return Promise.resolve(window.jsQR);
+      return new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = '/jsqr.js'; s.onload = () => res(window.jsQR); s.onerror = () => rej(new Error('decoder failed'));
+        document.head.appendChild(s);
+      });
+    }
+    async function startScan() {
+      pairErr.textContent = '';
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+        pairErr.textContent = 'Camera needs HTTPS. Open the https:// link, or type the token.'; return;
+      }
+      try {
+        scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      } catch (e) {
+        pairErr.textContent = 'Camera unavailable (' + (e && e.name || e) + '). Type the token instead.'; return;
+      }
+      const video = $('pairVideo');
+      video.srcObject = scanStream; try { await video.play(); } catch (e) {}
+      $('pairScanWrap').classList.add('show');
+      if ('BarcodeDetector' in window) { try { scanDetector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { scanDetector = null; } }
+      let decoder = null;
+      if (!scanDetector) { try { decoder = await loadJsQR(); } catch (e) { pairErr.textContent = 'Scanner unavailable — type the token.'; stopScan(); return; } }
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const tick = async () => {
+        if (!scanStream) return;
+        try {
+          if (video.readyState >= 2 && video.videoWidth) {
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            let text = '';
+            if (scanDetector) { const codes = await scanDetector.detect(canvas); if (codes && codes[0]) text = codes[0].rawValue; }
+            else { const img = ctx.getImageData(0, 0, canvas.width, canvas.height); const r = decoder(img.data, img.width, img.height); if (r) text = r.data; }
+            if (text) { const tok = parseToken(text); if (tok) { applyToken(tok); return; } }
+          }
+        } catch (e) {}
+        scanRAF = requestAnimationFrame(tick);
+      };
+      scanRAF = requestAnimationFrame(tick);
+    }
+    function stopScan() {
+      if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
+      if (scanStream) { try { scanStream.getTracks().forEach((t) => t.stop()); } catch (e) {} scanStream = null; }
+      const v = $('pairVideo'); if (v) v.srcObject = null;
+      $('pairScanWrap').classList.remove('show');
+      scanDetector = null;
+    }
+    $('miPair').addEventListener('click', () => { closeMenu(); openPair(); });
+    $('pairConnect').addEventListener('click', () => applyToken(pairInput.value));
+    pairInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyToken(pairInput.value); } });
+    $('pairClose').addEventListener('click', closePair);
+    pairScrimEl.addEventListener('click', closePair);
+    $('pairScan').addEventListener('click', startScan);
+    $('pairScanStop').addEventListener('click', stopScan);
+    // -----------------------------------------------------------------------
+
     $('menuBtn').addEventListener('click', openMenu);
     menuScrim.addEventListener('click', closeMenu);
     hback.addEventListener('click', goBack);
     $('miHistory').addEventListener('click', showHistory);
+    $('miGit').addEventListener('click', () => { closeMenu(); openGit(); });
     $('new').addEventListener('click', newChat);
     $('auto').addEventListener('click', toggleAuto);
     $('miTest').addEventListener('click', testNotify);
@@ -1027,6 +1619,7 @@
     $('miInstall').addEventListener('click', doInstall);
     $('installClose').addEventListener('click', closeInstallHelp);
     $('installScrim').addEventListener('click', closeInstallHelp);
+    $('miReload').addEventListener('click', forceReload);
     $('restart').addEventListener('click', doRestart);
     $('bsearch').addEventListener('input', (e) => { browseQuery = e.target.value; renderBrowse(); });
     input.addEventListener('input', () => { autosize(); updateSend(); });
@@ -1039,12 +1632,31 @@
     setView('projects');   // projects-first home, like Orca
 
     // Ride above the keyboard: match the VISUAL viewport height and shift down
-    // by its offset, so the footer sits just above the keyboard (not under it).
+    // by its offset, so the composer sits just above the keyboard (not under it).
+    // When the keyboard is up we also hide the bottom tab bar (via body.kb-open)
+    // so the composer/terminal rides directly on the keyboard with no gap.
     if (window.visualViewport) {
       const vv = window.visualViewport;
+      let vvBaseline = vv.height;   // tallest viewport seen = "no keyboard"
       const fit = () => {
-        document.body.style.height = vv.height + 'px';
-        document.body.style.transform = 'translateY(' + vv.offsetTop + 'px)';
+        vvBaseline = Math.max(vvBaseline, vv.height);
+        const kbOpen = (vvBaseline - vv.height) > 120;
+        document.body.classList.toggle('kb-open', kbOpen);
+        if (kbOpen) {
+          // Keyboard up: shrink to the VISUAL viewport and shift down by its
+          // offset so the composer/terminal rides just above the keyboard.
+          document.body.style.height = vv.height + 'px';
+          document.body.style.transform = 'translateY(' + vv.offsetTop + 'px)';
+        } else {
+          // No keyboard: hand the layout back to CSS (height:100dvh = the full
+          // screen incl. the bottom safe area). Do NOT pin to visualViewport
+          // here — on an installed iPhone PWA the visual viewport EXCLUDES the
+          // home-indicator inset, while #tabbar already pads by that same inset,
+          // so forcing it double-counted the inset and left a ~34px gap under
+          // the tab bar (the persistent "الفوتر مرتفع").
+          document.body.style.height = '';
+          document.body.style.transform = 'none';
+        }
         if (isNearBottom()) log.scrollTop = log.scrollHeight;
         if (termPanel.classList.contains('show')) fitTerminal();
       };
@@ -1055,8 +1667,56 @@
     function isNearBottom() { return log.scrollHeight - log.scrollTop - log.clientHeight < 120; }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      // updateViaCache:'none' → the sw.js script is never taken from HTTP cache,
+      // so update checks always see the newest worker.
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then((reg) => {
+        try { reg.update(); } catch (e) {}   // force an update check on every open
+        // If notifications are already granted, (re)register for push now — the
+        // server may have been restarted and dropped our subscription.
+        if ('Notification' in window && Notification.permission === 'granted') subscribeToPush();
+      }).catch(() => {});
+      // When a new worker takes control (after an update) reload once, so a fresh
+      // build is shown instead of a stale cached copy.
+      let swRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (swRefreshing) return; swRefreshing = true; location.reload();
+      });
+      // Foreground push: the SW forwards it here so we ring/toast instead of an
+      // OS banner (avoids notifying you about the very thing you're looking at).
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        const d = e.data || {};
+        if (d.type === 'push') { unlockAudio(); beep(); toast(d.title || 'dev-dock'); }
+      });
     }
+
+    // Keep the session alive across app-switches: when the PWA comes back to the
+    // foreground (or the network returns), reconnect if the socket died or ask
+    // the server for a fresh snapshot if it's still open. The turn itself never
+    // stopped — it runs on the server independently of any connected device.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') ensureConnected(); });
+    window.addEventListener('pageshow', ensureConnected);
+    window.addEventListener('focus', ensureConnected);
+    window.addEventListener('online', ensureConnected);
+
+    // Heartbeat: on a mobile/cellular link the socket can die SILENTLY while the
+    // app is still open (no close event, no visibility change) — the chat then
+    // just freezes mid-turn. Every 15s (only while visible) send a tiny ping; if
+    // no byte comes back within 4s the socket is dead, so reconnect and resync.
+    // A live/streaming turn already updates lastRecvAt constantly, so this never
+    // false-fires during normal use.
+    let heartbeatTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;   // closed sockets are handled by connect()/reconnect
+      const sock = ws, sentAt = Date.now();
+      try { ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
+      setTimeout(() => {
+        if (ws === sock && lastRecvAt < sentAt) {   // no pong (nor any other message) → dead socket
+          teardown(sock); if (ws === sock) ws = null;
+          clearReconnect(); connect();
+        }
+      }, 4000);
+    }, 15000);
+
     connect();
   </script>
 </body>

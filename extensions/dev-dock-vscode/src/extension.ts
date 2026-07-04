@@ -23,6 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const config = vscode.workspace.getConfiguration('devDock');
   const port = config.get<number>('bridgePort', 51888);
+  const token = config.get<string>('token', '');
 
   client = new BridgeClient(
     port,
@@ -34,7 +35,8 @@ export function activate(context: vscode.ExtensionContext): void {
         sendContext(); // Push current state on (re)connect.
       }
     },
-    (msg) => output.appendLine(msg)
+    (msg) => output.appendLine(msg),
+    token
   );
 
   // The synced chat panel — mirrors the dev-dock app conversation in real time.

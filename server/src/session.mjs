@@ -54,6 +54,7 @@ export class ClaudeSession extends EventEmitter {
     this.proc = null;
     this.verbTimer = null;
     this.streamingChars = 0;
+    this._suppressFinishNotify = false;   // set when we kill the runner on purpose (stop/new)
   }
 
   get projectName() { return this.currentProject ? this.currentProject.name : (path.basename(this.cwd) || '~'); }
@@ -67,7 +68,7 @@ export class ClaudeSession extends EventEmitter {
   send(text, attachments = []) {
     text = (text || '').trim();
     if (this.isStreaming || (!text && !attachments.length)) return;
-    this.messages.push({ id: rid(), role: 'user', text, tools: [], streaming: false, isError: false, attachments });
+    this.messages.push({ id: rid(), role: 'user', text, tools: [], streaming: false, isError: false, attachments, time: Date.now() });
 
     let prompt = text;
     if (attachments.length) {
@@ -75,7 +76,7 @@ export class ClaudeSession extends EventEmitter {
       prompt = lead + '\n' + attachments.join('\n');
     }
 
-    const assistant = { id: rid(), role: 'assistant', text: '', tools: [], streaming: true, isError: false, attachments: [] };
+    const assistant = { id: rid(), role: 'assistant', text: '', tools: [], streaming: true, isError: false, attachments: [], time: Date.now() };
     this.messages.push(assistant);
     this.isStreaming = true; this.streamingChars = 0; this.streamingTokens = 0; this.workingVerb = 'Thinking'; this.statusText = 'Thinking…';
     this._startVerbs();
@@ -144,6 +145,7 @@ export class ClaudeSession extends EventEmitter {
     this.pendingPermission = makePermission(id, tool, obj.input || {}, obj.title, obj.description, obj.canRemember);
     this.statusText = 'Waiting for approval…';
     this._change();
+    this.emit('permissionPending', this.pendingPermission);   // -> OS push notification
   }
 
   respondToPermission(id, allow, remember = false, message = null) {
@@ -157,24 +159,29 @@ export class ClaudeSession extends EventEmitter {
   _finalize(assistant, code, stderr) {
     this.hasStarted = true; this.isStreaming = false; this._stopVerbs(); this.statusText = ''; this.proc = null;
     assistant.streaming = false; this.pendingPermission = null;
+    // How long this prompt took, start (send) → now (turn finished).
+    if (assistant.time) assistant.durationMs = Date.now() - assistant.time;
     if (!assistant.text) {
       const detail = (stderr || '').trim();
       assistant.text = detail || `No response (runner exited with code ${code}).`;
       assistant.isError = true;
     }
     this._change();
+    // Notify (OS push) that the turn is done — unless we killed it ourselves.
+    if (this._suppressFinishNotify) { this._suppressFinishNotify = false; }
+    else this.emit('turnFinished', { isError: assistant.isError, text: assistant.text });
   }
 
   stop() {
-    if (this.proc) { try { this.proc.kill(); } catch {} this.proc = null; }
+    if (this.proc) { this._suppressFinishNotify = true; try { this.proc.kill(); } catch {} this.proc = null; }
     this._stopVerbs(); this.isStreaming = false; this.pendingPermission = null; this.statusText = 'Stopped';
     const last = this.messages[this.messages.length - 1];
-    if (last && last.role === 'assistant') last.streaming = false;
+    if (last && last.role === 'assistant') { last.streaming = false; if (last.time && last.durationMs == null) last.durationMs = Date.now() - last.time; }
     this._change();
   }
 
   startNewSession() {
-    if (this.proc) { try { this.proc.kill(); } catch {} this.proc = null; }
+    if (this.proc) { this._suppressFinishNotify = true; try { this.proc.kill(); } catch {} this.proc = null; }
     this._stopVerbs();
     this.messages = []; this.sessionId = rid(); this.hasStarted = false; this.totalCostUSD = 0;
     this.statusText = ''; this.isStreaming = false; this.pendingPermission = null;
@@ -194,6 +201,31 @@ export class ClaudeSession extends EventEmitter {
     this.startNewSession();
     this.loadSessions(id);
   }
+  // Surface an arbitrary directory in the projects list WITHOUT switching to it —
+  // used by the Git tab so a freshly cloned/created repo (which has no ~/.claude
+  // history yet, so loadProjects() can't find it) is openable without disrupting
+  // an in-progress chat. Deduped by path.
+  registerProject(absPath, displayName) {
+    if (!absPath) return null;
+    const existing = this.projects.find((p) => p.path === absPath);
+    if (existing) return { id: existing.id, path: absPath, name: displayName || path.basename(absPath) };
+    const id = encodeProjectId(absPath);
+    this.projects.unshift({ id, path: absPath, gitBranch: null, sessionCount: 0, modified: Date.now() / 1000 });
+    this.emit('projects', this.projects);
+    return { id, path: absPath, name: displayName || path.basename(absPath) };
+  }
+
+  // Open an arbitrary directory as the active project (registers it, then switches
+  // cwd + starts a fresh session there).
+  openPath(absPath, displayName) {
+    const entry = this.registerProject(absPath, displayName);
+    if (!entry) return null;
+    this.currentProject = { id: entry.id, path: absPath, name: entry.name };
+    this.cwd = absPath;
+    this.startNewSession();
+    return entry;
+  }
+
   loadSessions(id) {
     const pid = id || (this.currentProject && this.currentProject.id);
     if (!pid) return;
@@ -211,7 +243,18 @@ export class ClaudeSession extends EventEmitter {
         : { id: encodeProjectId(s.projectPath), path: s.projectPath, name: path.basename(s.projectPath) };
     }
     const msgs = history.transcript(sessionRef, this.currentProject.id);
-    this.messages = msgs.slice(-120).map((m) => ({ id: m.id, role: m.role, text: m.text, tools: m.tools, streaming: false, isError: false, attachments: [] }));
+    this.messages = msgs.slice(-120).map((m) => ({ id: m.id, role: m.role, text: m.text, tools: m.tools, streaming: false, isError: false, attachments: [], time: m.time || null }));
+    // How long each past prompt took: for every user message, tag the LAST
+    // assistant reply before the next user prompt with (that reply's time − the
+    // prompt's time). Gives the same per-turn duration the live path records.
+    for (let i = 0; i < this.messages.length; i++) {
+      if (this.messages[i].role !== 'user' || !this.messages[i].time) continue;
+      let lastA = null;
+      for (let j = i + 1; j < this.messages.length && this.messages[j].role !== 'user'; j++) {
+        if (this.messages[j].role === 'assistant' && this.messages[j].time) lastA = this.messages[j];
+      }
+      if (lastA) lastA.durationMs = Math.max(0, lastA.time - this.messages[i].time);
+    }
     this.sessionId = sessionRef; this.hasStarted = true; this.statusText = '';
     this._change();
   }

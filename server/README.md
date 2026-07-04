@@ -69,14 +69,51 @@ run VS Code on the same machine, or forward the port. The extension connects to
 | --- | --- | --- |
 | `DEVDOCK_PWA_PORT` | `51890` | HTTP port for the PWA. |
 | `DEVDOCK_WS_PORT` | `51888` | WebSocket bridge port. |
+| `DEVDOCK_HOST` | `0.0.0.0` | Interface to bind. Set `127.0.0.1` (local only) or your Tailscale IP to shrink exposure. |
+| `DEVDOCK_TOKEN` | *(file)* | Pins an **immutable** token. Unset ⇒ a rotatable one is kept in `server/.devdock-token` (stable across restarts). |
+| `DEVDOCK_TRUST_LOCAL` | off | `1` lets genuine localhost connect without a token (e.g. the VS Code extension). Proxied (Tailscale) requests are never trusted. |
+| `DEVDOCK_DOMAINS` | `dev-dock.hmh.dev, dev-dock.hmh6.dev` | Comma-separated public base URLs offered as pairing targets (QR/links). |
+| `DEVDOCK_ALL_IFACES` | off | `1` lists every network interface in the pairing menu (default hides Docker/VM bridges). |
 | `DEVDOCK_TERMINAL` | on | Set `0` to disable the terminal (no shell exposed). |
 | `DEVDOCK_ACCESS` | `ask` | Tool policy: `safe` (read-only), `ask` (prompt), `full` (auto-allow). |
 | `DEVDOCK_AGENT_RUNNER` | `../agent-runner/runner.mjs` | Path to the runner. |
 
+## Access control (token pairing)
+
+Every network client must present a **pairing token**, printed at startup as a
+**QR code** and a `http://…/?token=…` link:
+
+- **Phone / another machine** — scan the QR (or open the link). The PWA stores the
+  token and scrubs it from the address bar.
+- **This machine's browser** — open the `localhost` link with `?token=…`.
+- **In-app pairing screen** — if the PWA opens without a token (e.g. the installed
+  app, or a fresh reload), it shows a pairing screen: **type/paste the token or the
+  full link**, or tap **Scan QR code** to read it with the camera. Reopen it any time
+  from **⋯ menu → Pairing token**. (Camera scanning needs a secure context — the
+  HTTPS domains or `localhost`; on a plain-HTTP LAN IP, type the token instead.)
+- **VS Code extension** — either run the server with `DEVDOCK_TRUST_LOCAL=1`, or set
+  `devDock.token` to the printed token.
+
+Unauthorized WebSocket handshakes are rejected with **401**; `/upload` and `/media`
+are gated too. See connected devices any time via the terminal log (printed on every
+connect/disconnect) or `GET /clients?token=…`.
+
+**Rotate the token** any time — mints a new one, disconnects every paired device,
+and kills the old token:
+
+```bash
+cd server && npm run new-token                 # interactive: pick localhost / LAN / Tailscale / a domain
+npm run new-token -- --target dev-dock.hmh6.dev # non-interactive (number, substring, or "all")
+```
+
+Pairing targets are every real local IP plus the `DEVDOCK_DOMAINS`.
+
 ## Security notes
 
-- The terminal is a **real shell** reachable over the network — keep it on Tailscale,
-  or set `DEVDOCK_TERMINAL=0` on untrusted networks.
+- Access is **token-gated** by default — localhost included. Loosen only with
+  `DEVDOCK_TRUST_LOCAL=1`.
+- The terminal is a **real shell**; even behind the token, keep it on Tailscale or
+  set `DEVDOCK_TERMINAL=0` on untrusted networks.
 - The file browser is **read-only and clamped** to opened project folders.
 - Tool permissions flow through the access policy; a remote client only answers
   prompts the server decided to surface.

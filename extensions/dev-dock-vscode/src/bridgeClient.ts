@@ -23,7 +23,8 @@ export class BridgeClient {
     private readonly port: number,
     private readonly onMessage: MessageHandler,
     private readonly onStatus: StatusHandler,
-    private readonly log: (message: string) => void
+    private readonly log: (message: string) => void,
+    private readonly token: string = ''
   ) {}
 
   get isConnected(): boolean {
@@ -63,9 +64,12 @@ export class BridgeClient {
     }
     this.clearReconnect();
 
-    const url = `ws://127.0.0.1:${this.port}`;
-    this.log(`Connecting to ${url}…`);
-    const socket = new WebSocket(url);
+    // The server gates the bridge with a shared token. Loopback is exempt when it
+    // runs with DEVDOCK_TRUST_LOCAL=1; otherwise set devDock.token to the pairing
+    // token. Sent both as a header and a query param (belt and suspenders).
+    const url = `ws://127.0.0.1:${this.port}${this.token ? `?token=${encodeURIComponent(this.token)}` : ''}`;
+    this.log(`Connecting to ws://127.0.0.1:${this.port}…`);
+    const socket = new WebSocket(url, this.token ? { headers: { 'x-devdock-token': this.token } } : undefined);
     this.socket = socket;
 
     socket.on('open', () => {

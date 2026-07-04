@@ -12,3 +12,9 @@ node_modules/
 extensions/dev-dock-vscode/out/
 extensions/dev-dock-vscode/*.vsix
 *.log
+
+# dev-dock server secrets / runtime
+server/.devdock-token
+server/.devdock.pid
+server/.devdock-vapid.json
+server/.devdock-subs.json

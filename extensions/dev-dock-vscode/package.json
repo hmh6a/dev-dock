@@ -60,6 +60,11 @@
           "default": 51888,
           "description": "Localhost WebSocket port the dev-dock app listens on."
         },
+        "devDock.token": {
+          "type": "string",
+          "default": "",
+          "description": "Pairing token required by the dev-dock server. Leave empty if the server runs with DEVDOCK_TRUST_LOCAL=1 (localhost trusted); otherwise paste the token shown in the server terminal."
+        },
         "devDock.autoConnect": {
           "type": "boolean",
           "default": true,

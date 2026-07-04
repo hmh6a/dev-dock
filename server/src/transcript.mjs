@@ -93,12 +93,13 @@ export function messages(lines) {
     const obj = jsonObject(line);
     if (!obj || obj.isSidechain === true) continue;
     const uuid = obj.uuid || Math.random().toString(36).slice(2);
+    const time = parseDate(obj.timestamp);   // ms epoch, or null — shown in the chat
     if (obj.type === 'user') {
       const text = cleanText(obj);
-      if (text) result.push({ id: uuid, role: 'user', text, tools: [] });
+      if (text) result.push({ id: uuid, role: 'user', text, tools: [], time });
     } else if (obj.type === 'assistant') {
       const { text, tools } = assistantContent(obj);
-      if (text || tools.length) result.push({ id: uuid, role: 'assistant', text, tools });
+      if (text || tools.length) result.push({ id: uuid, role: 'assistant', text, tools, time });
     }
   }
   return result;
