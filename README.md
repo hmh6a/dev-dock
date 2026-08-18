@@ -41,6 +41,9 @@ dev-dock/
   - Ports bound to every interface (`*` / `0.0.0.0`) show a chip per address
     (`Wi-Fi 192.168.0.189:3000`, `Tailscale 100.64.0.12:3000`) — click to copy
     the URL, ⌥-click to open it
+  - **Live CPU and RAM of the owning process** on every row — the chips warm to
+    orange/red as a server gets heavy (per-process, so ports sharing a PID show
+    the same figures)
   - Open `localhost` in the browser
   - Copy URL
   - Kill the owning process (with confirmation)
@@ -82,6 +85,14 @@ Installs deps (first run only), compiles the VS Code extension, builds and
 launches the app. Use `./run.sh --setup` to prepare everything without launching.
 Then open the **dev-dock** icon in the VS Code sidebar (or press <kbd>F5</kbd> in
 `extensions/dev-dock-vscode`) for the synced chat panel.
+
+### Always-on menu bar agent
+
+```bash
+./reload-agent.sh
+```
+
+Rebuilds, refreshes the copy the LaunchAgent runs from, and restarts it.
 
 ### macOS app
 

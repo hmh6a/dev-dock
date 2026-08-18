@@ -19,6 +19,7 @@ final class PortsViewModel: ObservableObject {
     private let scanner = PortScanner()
     private let processManager = ProcessManager()
     private let directoryResolver = ProcessDirectoryResolver()
+    private let usageResolver = ProcessUsageResolver()
     private let networkScanner = NetworkInterfaceScanner()
     private var copyResetTask: Task<Void, Never>?
 
@@ -66,11 +67,18 @@ final class PortsViewModel: ObservableObject {
         errorMessage = nil
         do {
             let scanned = try await scanner.scanAsync()
-            // Enrich with each owner's working directory so the UI can show the
-            // project folder the server was started from. Best-effort: unresolved
-            // pids just show no folder.
-            let directories = await directoryResolver.resolveAsync(pids: scanned.map(\.pid))
-            entries = scanned.map { $0.withWorkingDirectory(directories[$0.pid]) }
+            // Enrich with each owner's working directory (the project folder the
+            // server was started from) and its live CPU / memory usage, so a port
+            // that is eating the machine is visible at a glance. Both are
+            // best-effort — unresolved pids just show no folder / no usage — and
+            // both are separate subprocesses, so they run concurrently.
+            let pids = scanned.map(\.pid)
+            async let directoriesTask = directoryResolver.resolveAsync(pids: pids)
+            async let usagesTask = usageResolver.resolveAsync(pids: pids)
+            let (directories, usages) = await (directoriesTask, usagesTask)
+            entries = scanned.map {
+                $0.withWorkingDirectory(directories[$0.pid]).withUsage(usages[$0.pid])
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

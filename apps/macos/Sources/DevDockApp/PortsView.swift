@@ -321,10 +321,15 @@ private struct PortRow: View {
                                     .lineLimit(1)
                             }
                         }
-                        Text("\(entry.address)  ·  PID \(entry.pid)")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                        HStack(spacing: 6) {
+                            Text("\(entry.address)  ·  PID \(entry.pid)")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            if let usage = entry.usage {
+                                UsageChips(usage: usage)
+                            }
+                        }
                     }
 
                     Spacer(minLength: 4)
@@ -372,6 +377,56 @@ private struct PortRow: View {
             }
         }
         .onHover { hovering = $0 }
+    }
+}
+
+/// CPU and RAM of the process behind a port, shown next to its PID.
+///
+/// The numbers are per **process**, not per socket — when one process owns
+/// several ports (Docker, VS Code) every one of its rows shows the same figures,
+/// which the tooltip spells out so the total isn't read as a sum.
+private struct UsageChips: View {
+    let usage: ProcessUsage
+
+    var body: some View {
+        HStack(spacing: 4) {
+            chip(systemImage: "cpu", text: usage.cpuLabel, tint: cpuTint)
+            chip(systemImage: "memorychip", text: usage.memoryLabel, tint: memoryTint)
+        }
+        .help("Process uses \(usage.cpuLabel) CPU and \(usage.memoryLabel) RAM "
+              + String(format: "(%.1f%% of memory)", usage.memoryPercent)
+              + " — shared by every port this PID owns.")
+    }
+
+    private func chip(systemImage: String, text: String, tint: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: systemImage)
+                .font(.system(size: 8, weight: .semibold))
+            Text(text)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background(Capsule().fill(tint.opacity(0.13)))
+        .fixedSize()
+    }
+
+    /// Warm the chip up as the process gets busy, so a runaway server stands out.
+    private var cpuTint: Color {
+        switch usage.cpuPercent {
+        case ..<25: return .secondary
+        case ..<75: return .orange
+        default: return .red
+        }
+    }
+
+    private var memoryTint: Color {
+        switch usage.residentMB {
+        case ..<500: return .secondary
+        case ..<1536: return .orange
+        default: return .red
+        }
     }
 }
 

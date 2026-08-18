@@ -18,22 +18,38 @@ public struct PortEntry: Identifiable, Equatable, Hashable, Sendable {
     /// This is the project folder the server was started from — e.g.
     /// `/Users/me/Documents/GitHub/yas/yas-api`.
     public let workingDirectory: String?
+    /// Live CPU / memory usage of the owning process, when it could be read.
+    /// Shared by every port the same pid owns — it is a per-process figure.
+    public let usage: ProcessUsage?
 
     /// Stable identity for SwiftUI lists. A single process can own several ports,
     /// so the address and port are part of the identity.
     public var id: String { "\(pid)-\(address)-\(port)" }
 
-    public init(pid: Int, process: String, address: String, port: Int, workingDirectory: String? = nil) {
+    public init(
+        pid: Int,
+        process: String,
+        address: String,
+        port: Int,
+        workingDirectory: String? = nil,
+        usage: ProcessUsage? = nil
+    ) {
         self.pid = pid
         self.process = process
         self.address = address
         self.port = port
         self.workingDirectory = workingDirectory
+        self.usage = usage
     }
 
     /// A copy of this entry with its working directory filled in.
     public func withWorkingDirectory(_ path: String?) -> PortEntry {
-        PortEntry(pid: pid, process: process, address: address, port: port, workingDirectory: path)
+        PortEntry(pid: pid, process: process, address: address, port: port, workingDirectory: path, usage: usage)
+    }
+
+    /// A copy of this entry with its owner's CPU / memory usage filled in.
+    public func withUsage(_ usage: ProcessUsage?) -> PortEntry {
+        PortEntry(pid: pid, process: process, address: address, port: port, workingDirectory: workingDirectory, usage: usage)
     }
 
     /// The last path component of ``workingDirectory`` — the project folder name a
