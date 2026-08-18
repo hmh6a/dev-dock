@@ -36,6 +36,11 @@ dev-dock/
   `lsof -iTCP -sTCP:LISTEN -n -P`, with:
   - Recognized **development ports shown first** (Vite, PostgreSQL, Redis, …),
     each tagged with its service
+  - **All of this Mac's IP addresses** — Wi-Fi, Ethernet, Tailscale, VPN —
+    listed above the ports, each one click-to-copy with its own refresh button
+  - Ports bound to every interface (`*` / `0.0.0.0`) show a chip per address
+    (`Wi-Fi 192.168.0.189:3000`, `Tailscale 100.64.0.12:3000`) — click to copy
+    the URL, ⌥-click to open it
   - Open `localhost` in the browser
   - Copy URL
   - Kill the owning process (with confirmation)
