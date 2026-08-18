@@ -28,6 +28,8 @@ struct RootView: View {
             MobileView(server: appState.pwa)
         case .ports:
             PortsView()
+        case .tools:
+            ToolsView()
         case .settings:
             SettingsView()
         default:

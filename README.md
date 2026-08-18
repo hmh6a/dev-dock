@@ -67,7 +67,12 @@ dev-dock/
 - **Remote tab** — start Claude Code's official **Remote Control** server for a
   project from inside dev-dock, and scan the **in-app QR code** to drive your Mac
   from the Claude mobile app / claude.ai while you're away.
-- **Other tabs** (Processes, Docker, Projects, Logs, Settings) — scaffolded
+- **Tools tab** — developer command-line tools, each showing whether it is
+  installed (and at which version). One button per tool: **Install** runs
+  `brew install <formula>` in a terminal window (guarded, so an already-installed
+  tool is never reinstalled), **Run** launches it. Ships with
+  [`mole`](https://mole.fit) — deep clean and optimize your Mac.
+- **Other tabs** (Docker, Projects, Logs, Settings) — scaffolded
   placeholders.
 - **VS Code extension skeleton** — connects over a localhost WebSocket, streams
   workspace/active-file/selection context, and handles `openFile`, `createFile`,

@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Generic "coming soon" screen for tabs that are scaffolded but not yet
-/// implemented (Processes, Docker, Projects, Logs). Each names the roadmap phase
-/// it belongs to.
+/// implemented (Docker, Projects, Logs). Each names the roadmap phase it
+/// belongs to.
 struct PlaceholderView: View {
     let tab: AppTab
 
@@ -31,7 +31,6 @@ struct PlaceholderView: View {
 
     private var roadmapPhase: String {
         switch tab {
-        case .processes: return "Phase 4"
         case .docker: return "Phase 4"
         case .projects: return "Phase 4"
         case .logs: return "Phase 4"
@@ -41,7 +40,6 @@ struct PlaceholderView: View {
 
     private var blurb: String {
         switch tab {
-        case .processes: return "Inspect and manage running processes, sorted by CPU and memory."
         case .docker: return "See containers, images, and volumes — start, stop, and view logs."
         case .projects: return "Quick-launch your repos in the editor, terminal, or browser."
         case .logs: return "Tail application and system logs in one place."
