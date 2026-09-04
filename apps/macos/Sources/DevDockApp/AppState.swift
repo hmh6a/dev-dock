@@ -24,9 +24,15 @@ final class AppState: ObservableObject {
     /// Interactive terminals (PTYs) a connected client can open per project.
     let terminal = TerminalManager()
 
+    /// Checks GitHub for a newer release every twelve hours, and blocks the UI
+    /// when that release was published as mandatory.
+    let updates = UpdateManager()
+
     private var cancellables: Set<AnyCancellable> = []
 
     init() {
+        updates.start()
+
         // A prompt / command arriving from the VS Code panel.
         server.onMessage = { [weak self] message in
             guard let self else { return }

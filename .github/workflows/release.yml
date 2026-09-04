@@ -1,0 +1,91 @@
+name: Release
+
+# Cut a release by pushing a tag:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# or run this workflow by hand with a version. Either way it publishes a
+# universal DevDock.app as a .dmg and a .zip that anyone with a Mac can install.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 0.1.0) — publishes a draft release'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: swift test --package-path apps/macos
+
+      - name: Resolve the version
+        id: version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Package
+        run: ./scripts/package-app.sh "${{ steps.version.outputs.version }}"
+
+      - name: Write the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # An even patch number means every installed copy is forced to take
+          # this release — the rule the app itself applies. Say so in the notes.
+          PATCH="${VERSION##*.}"
+          if [ $((PATCH % 2)) -eq 0 ]; then
+            echo '> **This is a required update** — installed copies are blocked until it is taken.' > dist/NOTES.md
+          else
+            echo '> Optional update — installed copies are offered it, and can skip it.' > dist/NOTES.md
+          fi
+          echo >> dist/NOTES.md
+          cat >> dist/NOTES.md <<'NOTES'
+          ### Install
+
+          1. Download the `.dmg`, open it, drag **dev-dock** to Applications.
+          2. The first launch needs one extra step, because this build is signed
+             ad-hoc rather than with a paid Apple Developer ID: **right-click the
+             app → Open → Open**. (Or run
+             `xattr -dr com.apple.quarantine /Applications/DevDock.app` once.)
+          3. Look for the box icon in the menu bar — there is no Dock icon.
+
+          Universal (Apple Silicon + Intel), macOS 13 or newer.
+
+          ### What needs to be on your Mac
+
+          | Tab | Needs |
+          | --- | --- |
+          | Ports · System · Tools | nothing — works out of the box |
+          | AI · Remote | the [`claude` CLI](https://claude.com/claude-code), plus `node` for permission prompts |
+
+          The Node runner behind the AI tab's permission prompts ships inside the
+          app; you don't install it separately.
+          NOTES
+          echo "checksums:" && cat dist/SHA256SUMS.txt
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # A tag push publishes; a manual run leaves a draft to look over first.
+          DRAFT=""
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && DRAFT="--draft"
+          gh release create "v$VERSION" \
+            --title "dev-dock $VERSION" \
+            --notes-file dist/NOTES.md \
+            --generate-notes \
+            $DRAFT \
+            dist/DevDock-*.dmg dist/DevDock-*.zip dist/SHA256SUMS.txt

@@ -4,6 +4,7 @@ import AppKit
 /// Minimal settings surface. Kept intentionally small for the MVP — appearance
 /// follows the system, and the only real control is Quit.
 struct SettingsView: View {
+    @ObservedObject var updates: UpdateManager
     @AppStorage("bridge.port") private var bridgePort: Int = 51_888
     @AppStorage("ports.autoRefresh") private var autoRefresh: Bool = false
     @AppStorage("terminal.enabled") private var terminalEnabled: Bool = false
@@ -35,18 +36,7 @@ struct SettingsView: View {
                 }
             }
 
-            Card {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("dev-dock").font(.callout.weight(.semibold))
-                        Spacer()
-                        Text("v0.1.0 · MVP").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Text("Native macOS developer cockpit.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            UpdatesCard(updates: updates)
 
             Spacer()
 

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, mac]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Build & test (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: swift build --package-path apps/macos
+
+      # The live Claude tests skip themselves unless DEVDOCK_LIVE_CLAUDE=1, so
+      # this suite needs neither the `claude` CLI nor an API key.
+      - name: Test
+        run: swift test --package-path apps/macos
+
+      # Catches a packaging break (Info.plist, icon, bundling) on every push,
+      # rather than at the moment someone cuts a release.
+      - name: Package
+        run: ./scripts/package-app.sh
+
+      - name: Upload the app
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevDock-app-${{ github.sha }}
+          path: dist/*.zip
+          retention-days: 14

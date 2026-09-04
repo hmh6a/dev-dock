@@ -10,6 +10,57 @@ development.
 
 ---
 
+## Install (no build needed)
+
+Grab the latest **[release](https://github.com/hmh6a/dev-dock/releases/latest)**,
+open the `.dmg`, and drag **dev-dock** to Applications. Universal build — Apple
+Silicon and Intel — macOS 13 or newer.
+
+The first launch needs one extra step, because the app is signed ad-hoc rather
+than with a paid Apple Developer ID: **right-click it → Open → Open**. Or clear
+the quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/DevDock.app
+```
+
+Then look for the box icon in the menu bar — there is no Dock icon. The **Ports**,
+**System**, and **Tools** tabs work immediately; the **AI** and **Remote** tabs
+need the [`claude` CLI](https://claude.com/claude-code) (and `node` for
+permission prompts) on your machine. The Node runner itself ships inside the app.
+
+### Updates
+
+The app checks GitHub for a newer release **every 12 hours**, and on demand from
+**Settings → Check now**. The version's own patch number says how urgent it is:
+
+| Tag | `z` | What the installed app does |
+| --- | --- | --- |
+| `v1.4.3` | odd | Offers the update — a banner you can dismiss, and a card in Settings |
+| `v1.4.4` | even | **Required.** The window is blocked until the update is installed |
+
+A skipped mandatory release still forces the update later: if you are on `v1.0.1`
+and `v1.0.2` (required) is followed by `v1.0.3`, the app blocks. Builds run from a
+checkout (`swift run`, version `0.0.0-dev`) are never blocked.
+
+"Install" downloads the `.dmg` to ~/Downloads and opens it — you drag the app to
+Applications as usual. dev-dock does not replace its own binary behind your back.
+
+### Releasing
+
+Releases are built by [GitHub Actions](.github/workflows/release.yml) from a tag:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+Pick the last number deliberately: **even means every installed copy is forced to
+update**, odd means they are merely offered it.
+
+`scripts/package-app.sh` does the same thing locally, writing the `.app`, `.dmg`,
+and `.zip` to `dist/`. The update check reads the **public** releases API, so the
+repository has to be public for it (and for other people's downloads) to work.
+
 ## Repository layout
 
 ```text
@@ -67,6 +118,16 @@ dev-dock/
 - **Remote tab** — start Claude Code's official **Remote Control** server for a
   project from inside dev-dock, and scan the **in-app QR code** to drive your Mac
   from the Claude mobile app / claude.ai while you're away.
+- **System tab** — the whole machine at a glance, refreshed every two seconds
+  with a two-minute sparkline per meter:
+  - **CPU** load split into user / system / idle, **memory** split the way
+    Activity Monitor splits it (app · wired · compressed · cached) with the
+    kernel's own pressure verdict, **GPU** utilization and mapped memory,
+    **storage** used / free / total for every mounted volume, and live
+    **network** transfer rates (Wi-Fi / Ethernet / cellular, VPN tunnels not
+    double-counted)
+  - **CPU and GPU temperature**, read from the Mac's thermal sensors without
+    `sudo` — plus the full sensor list (die, storage, battery) behind a disclosure
 - **Tools tab** — developer command-line tools, each showing whether it is
   installed (and at which version). One button per tool: **Install** runs
   `brew install <formula>` in a terminal window (guarded, so an already-installed
@@ -132,7 +193,7 @@ thin shell over it. See [`docs/architecture.md`](docs/architecture.md) and the
 
 | Phase | Scope |
 | ----- | ----- |
-| 1 ✅ | Menu bar app · Ports manager (dev-ports first) · kill process · open localhost |
+| 1 ✅ | Menu bar app · Ports manager (dev-ports first) · kill process · open localhost · System monitor (CPU · RAM · GPU · storage · network · temperature) |
 | 3 ✅ | AI chat via Claude Code CLI (agent/model/effort pickers, token streaming, images) |
 | 2 ✅ | WebSocket bridge **app-side server** + **real-time two-way synced chat panel** in VS Code |
 | 4 | Docker · Projects · Logs |

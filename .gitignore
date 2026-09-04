@@ -18,3 +18,6 @@ server/.devdock-token
 server/.devdock.pid
 server/.devdock-vapid.json
 server/.devdock-subs.json
+
+# Build output from scripts/package-app.sh
+dist/

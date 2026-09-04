@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// The primary navigation tabs of the cockpit. ``ports``, ``ai``, ``remote``,
-/// ``mobile``, ``tools``, and ``settings`` ship real UI; the rest are
+/// ``mobile``, ``system``, ``tools``, and ``settings`` ship real UI; the rest are
 /// placeholders wired up for later phases.
 enum AppTab: String, CaseIterable, Identifiable {
     case ai
     case remote
     case mobile
     case ports
+    case system
     case tools
     case docker
     case projects
@@ -22,6 +23,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .remote: return "Remote"
         case .mobile: return "Mobile"
         case .ports: return "Ports"
+        case .system: return "System"
         case .tools: return "Tools"
         case .docker: return "Docker"
         case .projects: return "Projects"
@@ -36,6 +38,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .remote: return "antenna.radiowaves.left.and.right"
         case .mobile: return "iphone"
         case .ports: return "network"
+        case .system: return "speedometer"
         case .tools: return "wrench.and.screwdriver"
         case .docker: return "square.stack.3d.up"
         case .projects: return "folder"
@@ -47,7 +50,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     /// Whether the tab has real functionality (vs. a "coming soon" placeholder).
     var isImplemented: Bool {
         switch self {
-        case .ports, .ai, .remote, .mobile, .tools, .settings: return true
+        case .ports, .ai, .remote, .mobile, .system, .tools, .settings: return true
         default: return false
         }
     }

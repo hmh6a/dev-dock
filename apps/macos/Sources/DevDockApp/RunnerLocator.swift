@@ -18,13 +18,22 @@ enum RunnerLocator {
         return viaLoginShell("node")
     }
 
-    /// Find `agent-runner/runner.mjs`: an env override, then by walking up from
-    /// the executable (works for `swift run` and an installed bundle).
+    /// Find `agent-runner/runner.mjs`: an env override, then inside the app
+    /// bundle's resources (how the released `.app` ships it), then by walking up
+    /// from the executable (how it is found when run from a checkout).
     static func runnerScript() -> URL? {
         let fileManager = FileManager.default
         if let override = ProcessInfo.processInfo.environment["DEVDOCK_AGENT_RUNNER"],
            fileManager.isReadableFile(atPath: override) {
             return URL(fileURLWithPath: override)
+        }
+
+        // A packaged build carries the runner in `Contents/Resources`, which is
+        // not on the walk-up path from `Contents/MacOS`.
+        if let bundled = Bundle.main.resourceURL?
+            .appendingPathComponent("agent-runner/runner.mjs"),
+           fileManager.isReadableFile(atPath: bundled.path) {
+            return bundled
         }
 
         var searchRoots: [URL] = []
