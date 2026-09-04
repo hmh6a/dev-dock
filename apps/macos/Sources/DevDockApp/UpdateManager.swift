@@ -40,16 +40,9 @@ final class UpdateManager: ObservableObject {
 
     init(checker: UpdateChecker = UpdateChecker()) {
         self.checker = checker
-        self.currentVersion = Self.installedVersion()
+        self.currentVersion = AppBuild.version
         let stored = UserDefaults.standard.double(forKey: Key.lastChecked)
         self.lastCheckedAt = stored > 0 ? Date(timeIntervalSince1970: stored) : nil
-    }
-
-    /// The version this build reports, or `0.0.0-dev` when it was run straight
-    /// from a checkout (`swift run`), where there is no bundle version to read.
-    static func installedVersion() -> AppVersion {
-        let raw = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-        return raw.flatMap(AppVersion.init) ?? AppVersion(major: 0, minor: 0, patch: 0, suffix: "dev")
     }
 
     // MARK: - Schedule

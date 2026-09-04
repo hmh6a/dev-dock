@@ -56,7 +56,15 @@ enum AppTab: String, CaseIterable, Identifiable {
     }
 
     /// Tabs shown in the main navigation area (Settings is pinned to the bottom).
+    ///
+    /// A released build shows only what actually works — nobody installs an app
+    /// to be shown three "coming soon" screens. The scaffolded tabs stay visible
+    /// in a development build, where they are the roadmap being worked on.
     static var primaryTabs: [AppTab] {
-        allCases.filter { $0 != .settings }
+        primaryTabs(includingUpcoming: AppBuild.isDevelopment)
+    }
+
+    static func primaryTabs(includingUpcoming: Bool) -> [AppTab] {
+        allCases.filter { $0 != .settings && (includingUpcoming || $0.isImplemented) }
     }
 }

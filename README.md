@@ -142,8 +142,9 @@ dev-dock/
   `brew install <formula>` in a terminal window (guarded, so an already-installed
   tool is never reinstalled), **Run** launches it. Ships with
   [`mole`](https://mole.fit) — deep clean and optimize your Mac.
-- **Other tabs** (Docker, Projects, Logs, Settings) — scaffolded
-  placeholders.
+- **Other tabs** (Docker, Projects, Logs) — scaffolded placeholders, and
+  **visible only in a development build**: a released copy shows just the tabs
+  that do something.
 - **VS Code extension skeleton** — connects over a localhost WebSocket, streams
   workspace/active-file/selection context, and handles `openFile`, `createFile`,
   `replaceSelection`, `insertText`, and `runTerminalCommand`.
