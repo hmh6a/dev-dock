@@ -17,12 +17,21 @@ open the `.dmg`, and drag **dev-dock** to Applications. Universal build — Appl
 Silicon and Intel — macOS 13 or newer.
 
 The first launch needs one extra step, because the app is signed ad-hoc rather
-than with a paid Apple Developer ID: **right-click it → Open → Open**. Or clear
-the quarantine flag once:
+than with a paid Apple Developer ID. macOS shows *"Apple could not verify
+DevDock.app is free of malware"* — clear the quarantine flag once and it opens
+normally from then on:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/DevDock.app
 ```
+
+Prefer not to touch the terminal? Try to open the app, dismiss the warning with
+**Done**, then go to **System Settings → Privacy & Security**, scroll to the
+message about DevDock, and click **Open Anyway**.
+
+> The old right-click → Open trick no longer works: Apple removed it in macOS 15.
+> The only way to make the warning disappear for good is notarization, which
+> needs a paid Apple Developer account.
 
 Then look for the box icon in the menu bar — there is no Dock icon. The **Ports**,
 **System**, and **Tools** tabs work immediately; the **AI** and **Remote** tabs
